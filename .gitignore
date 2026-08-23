@@ -1,0 +1,34 @@
+# Gradle
+.gradle/
+build/
+app/build/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Kotlin/Native & caches
+.kotlin/
+
+# Local config (SDK path — nikdy necommitovat)
+local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Android
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Logs & crash dumps
+*.log
+hs_err_pid*
+
+# Build outputs
+*.apk
+*.aab
+output.json
