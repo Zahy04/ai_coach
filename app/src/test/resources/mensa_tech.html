@@ -1,0 +1,1011 @@
+<!DOCTYPE html>
+
+
+
+  
+<html lang="cs"  data-bs-theme="light">
+  <head>    
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">  
+    <title>Jídelníčky menz ČVUT - Týdenní</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Webové jídelníčky menz ČVUT">
+    <meta name="keywords" content="Menzy, jídelníčky, ČVUT, Restaurace, Strahov, Kladno, Dejvice, Technická">
+    <meta name="author" content="Kaňovský Tomáš">
+    <!-- stylesheet --> 
+    <link
+  rel="stylesheet"
+  title="styl"
+  type="text/css"
+  href="css/bootstrap.css?v=1780485653"
+  media="screen">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.2/font/bootstrap-icons.css"> 
+    <link rel="stylesheet" title="styl" type="text/css" href="css/modalfoto.css" media="screen">
+    <link rel="stylesheet" title="styl" type="text/css" href="css/flag-icons.css" media="screen">
+    <!-- favicons -->
+    <link rel="shortcut icon" href="favicon.ico">
+    <link rel="icon" href="favicon.ico">
+    <link rel="shortcut icon" href="favicon.png" type="image/png">
+        <!-- javascript -->
+    <script src="js/jquery-3.6.0.min.js"></script>
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="js/bootstrap.bundle.min.js"></script>   
+
+    
+
+<!-- javascript vlastni kody ================================================================================ -->
+<script>
+ function SetLang(link,IDlink,Lang){
+  var J = Lang; 
+  var section = document.getElementById("PodsysActive").value;
+  if (section != 0){ 
+    document.getElementById(IDlink).href = link + "?clPodsystem=" +  section + "&lang="+J;
+  }else{
+    document.getElementById(IDlink).href = link + "?lang="+J;
+  }
+
+}
+
+document.addEventListener("DOMContentLoaded", function () {
+
+  // 1) Najdi root (html)
+  const root = document.documentElement;
+
+  // 2) Načti uložení
+  const saved = localStorage.getItem("bs-theme");
+  if (saved === "dark" || saved === "light") {
+    root.setAttribute("data-bs-theme", saved);
+  }
+
+  // 3) Najdi tlačítko
+  const btn = document.getElementById("themeToggle");
+  if (!btn) return; // tlačítko neexistuje → nic neděláme
+
+  // 4) Nastav text podle stavu
+  function updateButton() {
+
+  const mode = root.getAttribute("data-bs-theme") || "light";
+
+  const icon = document.getElementById("themeIcon");
+  if (!icon) return;
+
+  if (mode === "dark") {
+    icon.className = "bi bi-sun-fill";
+    btn.title = "Přepnout na světlý režim";
+  } else {
+    icon.className = "bi bi-moon-fill";
+    btn.title = "Přepnout na tmavý režim";
+  }
+}
+  updateButton();
+
+  // 5) Toggle funkce
+  btn.addEventListener("click", function () {
+    const current = root.getAttribute("data-bs-theme") === "dark" ? "dark" : "light";
+    const next = current === "dark" ? "light" : "dark";
+
+    root.setAttribute("data-bs-theme", next);
+    localStorage.setItem("bs-theme", next);
+
+    updateButton();
+  });
+
+});
+
+//function ShowJidelnicek(PodSid){
+//  var  OldPodSid = document.getElementById('PodsysActiveID').value;
+//  var PodSysN = parseInt(PodSid);  
+//  if (PodSysN > 0 && PodSysN < 16){
+  
+//  document.getElementById(OldPodSid).className = "btn btn-light btn-sm";
+//  document.getElementById('podS'+ PodSid).className = "btn btn-primary-menzy btn-sm";
+  
+//  document.getElementById('PodsysActive').value = PodSid;
+//  document.getElementById('PodsysActiveID').value = "podS"+ PodSid;
+//  }
+//}
+
+
+
+function ShowJidelnicek(PodSid) {
+  const oldIdInput   = document.getElementById('PodsysActiveID');
+  const activeValInp = document.getElementById('PodsysActive');
+  const btnDropdown  = document.getElementById('dropdownPodsystem');
+  const newBtn       = document.getElementById('podS' + PodSid);
+
+  // 1) Nastavit text dropdownu
+  const newName = newBtn?.innerText?.trim();
+  if (btnDropdown && newName) {
+    btnDropdown.innerText = newName;
+  }
+
+  // 2) Odstranit "active" z předchozího tlačítka
+  const oldBtnId = oldIdInput?.value;
+  const oldBtn   = oldBtnId ? document.getElementById(oldBtnId) : null;
+
+  if (oldBtn) {
+    oldBtn.classList.remove('active');     // nechává btn-panel, btn-sm
+    oldBtn.removeAttribute('aria-current');
+  }
+
+  // 3) Nastavit "active" na novém tlačítku
+  if (newBtn) {
+    newBtn.classList.add('active');        // zvýrazní dle CSS
+    newBtn.setAttribute('aria-current', 'true');
+  }
+
+  // 4) Uložit aktivní stav
+  if (activeValInp) activeValInp.value = String(PodSid);
+  if (oldIdInput)   oldIdInput.value   = 'podS' + PodSid;
+}
+
+
+function SendSection(IDlink){
+  var link = document.getElementById(IDlink).href;
+  var J = document.getElementById('Jaz').value;
+  var section = document.getElementById("PodsysActive").value;
+  if (section != 0){  
+  if (IDlink == "litydenh"){
+    document.getElementById(IDlink).href = link + "?clPodsystem=" +  section + "&lang="+J; 
+  }else{
+   document.getElementById(IDlink).href = link +"?lang=" +J+ "#section" +  section;
+  }
+  }else{
+    if (IDlink == "litydenh"){
+    document.getElementById(IDlink).href = link + "?lang="+J; 
+  }else{
+   document.getElementById(IDlink).href = link +"?lang=" +J;
+  }
+  }
+}
+
+
+</script>
+
+  <style> 
+
+
+
+/* Jídelníček – mobil friendly */
+
+.menu-row {
+    font-size: 0.95rem;
+}
+
+.menu-type {
+    font-weight: 500;
+}
+
+.menu-weight {
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.menu-name {
+    line-height: 1.3;
+}
+
+/* Desktop úprava */
+@media (min-width: 768px) {
+
+    .menu-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+
+    .menu-type {
+        width: 160px;
+        flex-shrink: 0;
+    }
+
+    .menu-weight {
+        width: 70px;
+        text-align: right;
+        flex-shrink: 0;
+    }
+
+    .menu-name {
+        flex-grow: 1;
+        margin-top: 0;
+    }
+
+}
+
+
+
+
+    </style>
+
+
+<!--
+================================================================================
+end of javascript code  -->
+
+ </head>
+  <body onload="ShowJidelnicek(3)">
+<input type='hidden' id='Jaz' value='cs'>
+<input type='hidden' id='PodsysActive' value='3'>
+<input type='hidden' id='ActivePage' value='lihome'>
+<input type='hidden' id='PodsysActiveID' value='podS1'>
+
+<header>
+  <nav class="navbar navbar-expand-lg navbar-dark fixed-top" style="background-color: #002d56;">
+    <div class="container">      
+      <div class="collapse navbar-collapse" id="navbarCollapse">
+        <ul class="navbar-nav nav-tabs">
+          <li id="lihome" class="nav-item"><a id="lihomeh" class="nav-link" href="index.php" onclick="SendSection('lihomeh');">Jídelníčky</a></li>
+          <li id="lityden" class="nav-item"><a id="litydenh" class="nav-link active" aria-current="page" href="#">Týdenní</a></li>
+          <li id="liot" class="nav-item"><a id="lioth" class="nav-link" href="oteviraci-doby.php" onclick="SendSection('lioth');">Otevírací doby</a></li>
+          <li id="likontakt" class="nav-item"><a id="likontakth" class="nav-link" href="kontakty.php" onclick="SendSection('likontakth');">Kontakty</a></li>
+          <li id="lismart" class="nav-item"><a id="lismarth" class="nav-link" href="aplikace.php?lang=cs">Aplikace</a></li>
+          <li id="listravnik" class="nav-item"><a id="listravnikh" class="nav-link" href="stravnik.php?lang=cs">Strávník</a></li>
+          <li id="liinformace" class="nav-item"><a id="liinformaceh" class="nav-link" href="informace.php?lang=cs">Informace</a></li>
+                    <li class="nav-item d-flex align-items-center ms-2">
+            <div class="btn-group btn-group-sm" role="group" aria-label="Language switch">
+              <a id="liLangCs" href="#" class="btn btn-light text-dark"
+                 aria-label="Přepnout do Češtiny" aria-current="true" onclick="SetLang('indexTyden.php','liLangCs','cs');">CZ</a>
+              <a id="liLangEn" href="#" class="btn btn-outline-light"
+                 aria-label="Switch to English"  onclick="SetLang('indexTyden.php','liLangEn','en');">EN</a>
+            </div>
+          </li>
+          <li class="nav-item d-flex align-items-center ms-2">
+            <button id="themeToggle" class="btn btn-sm btn-outline-light" type="button" title="Přepnout režim" aria-label="Přepnout světlý / tmavý režim" >
+             <i id="themeIcon" class="bi bi-moon-fill"></i>
+            </button>
+          </li>
+        </ul>      
+      </div>
+      <a class="navbar-brand" href="index.php?lang=cs"><i class="bi bi-house"></i> Jídelníčky menz ČVUT</a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <img src="img/Lev.png" class="lev_image" style="margin-right: 15px;" height='40' alt="...">
+    </div>
+  </nav>
+</header>
+
+
+
+<div class="container shadow p-3 mb-5 bg-body rounded"> <!-- start conteiner 3 -->
+  <div class="row"> <!-- start row 1 -->    
+  
+    <!-- PC: levý sticky panel -->
+    <div class="col-md-2 left-panel d-none d-md-block">
+      <div class="d-grid gap-2" style="position: sticky; top: 58px;">
+        <a id="podS1" href="?clPodsystem=1&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(1);"><img src='img/OtevrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz otevřen dle otevírací doby.'> Menza Strahov</a><a id="podS2" href="?clPodsystem=2&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(2);"><img src='img/ZavrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz uzavřen.'> Menza Studentský dům</a><a id="podS3" href="?clPodsystem=3&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(3);"><img src='img/OtevrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz otevřen dle otevírací doby.'> Technická menza</a><a id="podS9" href="?clPodsystem=9&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(9);"><img src='img/ZavrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz uzavřen.'> Menza Kladno</a><a id="podS6" href="?clPodsystem=6&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(6);"><img src='img/ZavrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz uzavřen.'> Výdejna Horská</a><a id="podS8" href="?clPodsystem=8&lang=cs" class="btn btn-panel btn-sm text-start" style="text-align:left;" onclick="ShowJidelnicek(8);"><img src='img/ZavrenoX1.png' width='15' height='15' class='d-inline-block align-text-top me-1' data-bs-toggle='tooltip' data-bs-placement='top' title='Provoz uzavřen.'> Výdejna Karlovo náměstí</a>      </div>
+    </div>
+    
+    <div class="mobile-menu">
+      <div class="dropdown">
+       <button class="btn btn-panel dropdown-toggle w-100" type="button" id="dropdownPodsystem" data-bs-toggle="dropdown" aria-expanded="false">
+         Vyber provoz       </button>
+       <ul class="dropdown-menu" aria-labelledby="dropdownPodsystem">
+         <li><a class="dropdown-item" href="?clPodsystem=1&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(1);"><img src='img/OtevrenoX1.png' width='15' height='15' class='me-1' alt='Provoz uzavřen.'>Menza Strahov</a></li><li><a class="dropdown-item" href="?clPodsystem=2&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(2);"><img src='img/ZavrenoX1.png' width='15' height='15' class='me-1' alt='Provoz otevřen dle otevírací doby.'>Menza Studentský dům</a></li><li><a class="dropdown-item" href="?clPodsystem=3&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(3);"><img src='img/OtevrenoX1.png' width='15' height='15' class='me-1' alt='Provoz uzavřen.'>Technická menza</a></li><li><a class="dropdown-item" href="?clPodsystem=9&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(9);"><img src='img/ZavrenoX1.png' width='15' height='15' class='me-1' alt='Provoz otevřen dle otevírací doby.'>Menza Kladno</a></li><li><a class="dropdown-item" href="?clPodsystem=6&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(6);"><img src='img/ZavrenoX1.png' width='15' height='15' class='me-1' alt='Provoz otevřen dle otevírací doby.'>Výdejna Horská</a></li><li><a class="dropdown-item" href="?clPodsystem=8&lang=cs"  style="text-align:left;" onclick="ShowJidelnicek(8);"><img src='img/ZavrenoX1.png' width='15' height='15' class='me-1' alt='Provoz otevřen dle otevírací doby.'>Výdejna Karlovo náměstí</a></li>       </ul>
+      </div>
+    </div>
+    
+        <div class="col-md-10">
+          <div id="infotyden" style="display:none;  ">
+            <div class="card mb-3" style="max-width: 600px;">
+              <div class="row g-0">
+                <div class="col-md-4">
+                  <img src="img/calendar_month_256.png" class="img-fluid rounded-start" alt="...">
+                </div>
+                <div class="col-md-8">
+                  <div class="card-body">
+                    <h5 class="card-title">Týdení jídelníčky menz</h5>
+                    <p class="card-text">Zde naleznety týdenní jídelníčky menz a výdejen.</p>
+                    <p class="card-text"><small class="text-muted">Týdenní jídelníčky vystavují pouze menzy a výdejny.</small></p>
+                  </div>
+                </div>
+              </div>
+            </div>    
+          </div>      
+          
+          
+          <div id="jidelnicek" style="display:block;">
+       
+
+
+<div class="container">
+  <!-- hlavička s názvem podsystemu a tlačítky na výběr týdne -->
+  <div class="row align-items-center mb-3">
+    <div class="col-12 col-lg-6">
+      <h4 class="m-0" style="color: var(--brand);">Technická menza</h4>
+    </div>
+    <div class="col-12 col-lg-6 text-lg-end">
+      <a href="?clPodsystem=3&clTyden=4195&lang=cs" class="btn btn-outline-secondary btn-sm me-2">Týden 35</a>    </div>
+  </div>
+
+  <!-- upozornění -->
+  <div class="alert alert-warning py-2" role="alert">
+      <strong>Upozornění: </strong>Tento jídelní lístek je pouze orientační a může se měnit!!!  </div>
+</div>
+
+<!-- hlavní obsah jídelníčku -->
+<div class='container' >
+
+                <div class="card mb-3 shadow-sm">
+                <div class="card-header text-white" style="background-color:#264c6f;">
+                    Úterý <b>25. 8. 2026</b>                </div>
+                <div class="card-body p-2">
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Slepičí vývar s masem a nudlemi    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Gulášová    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Hovězí pečeně s rajskou omáčkou, houskové knedlíky/těstoviny    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Vepřový řízek, letní bramborový salát/vařené brambory, řez citronu    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Kuřecí přírodní steak, smažené hranolky/vařené brambory, bylinkový dip    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Zeleninový salát s krůtími prsíčky a mungo klíčky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-success fw-bold">Vegetariánská jídla</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Smetanová omáčka s lesními houbami, houskové knedlíky/dušená rýže    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Minutky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        100 g Burittos s vepřovou panenkou v pšeničné tortile se sýrem čedar, hranolky, česnekový dip    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Moučníky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Čokoládová rolka    </div>
+
+</div>
+
+
+    </div></div>            <div class="card mb-3 shadow-sm">
+                <div class="card-header text-white" style="background-color:#264c6f;">
+                    Středa <b>26. 8. 2026</b>                </div>
+                <div class="card-body p-2">
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Hovězí vývar s drobením    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Bramboračka s houbami    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Marinovaný kuřecí steak, hranolky/vařené brambory, tzatziky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Sekaná pečeně, bramborová kaše, sterilovaná okurka    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        100 g Halušky se zelím a uzeným masem    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Caesar salát    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-success fw-bold">Vegetariánská jídla</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        200 g Kari z červené čočky, jasmínová rýže    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-primary fw-bold">Specialita dne</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Semolinové těstoviny s kuřecím masem a omáčkou pomodoro, parmazán    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Moučníky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Skořicový šnek    </div>
+
+</div>
+
+
+    </div></div>            <div class="card mb-3 shadow-sm">
+                <div class="card-header text-white" style="background-color:#264c6f;">
+                    Čtvrtek <b>27. 8. 2026</b>                </div>
+                <div class="card-body p-2">
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Kuřecí vývar s tarhoňou    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Boršč    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Kuřecí plátek s gorgonzolou, smažené hranolky/jasmínová rýže    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Svíčková hovězí pečeně,  houskové knedlíky,brusinky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Čevabčiči, vařené brambory, tatarská omáčka    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Salát Nicoise (tuňák, vejce, brambory,zelené fazolky)    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-success fw-bold">Vegetariánská jídla</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Kurkumová rýže s tofu, zeleninou a  kokosovým mlékem    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Minutky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Zauzená kachní prsa na pomerančích, batátové hranolky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Moučníky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Hřeben s malinami a mascarpone    </div>
+
+</div>
+
+
+    </div></div>            <div class="card mb-3 shadow-sm">
+                <div class="card-header text-white" style="background-color:#264c6f;">
+                    Pátek <b>28. 8. 2026</b>                </div>
+                <div class="card-body p-2">
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Francouzská cibulačka s krutónky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            <span class="text-secondary">Polévky</span>        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Květákový krém    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        350 g Zeleninový salát s olivami a balkánským sýrem    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Savojský řízek, šťouchané brambory/vařené brambory    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Lívance se zakysanou smetanou a borůvkami    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Hlavní jídla        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        120 g Kuřecí nudličky na indický způsob, jasmínová rýže    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Minutky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+        150 g Hovězí burger s čedarem, hranolky    </div>
+
+</div>
+
+
+       
+    <div class="menu-row mb-2 pb-2 border-bottom">
+
+    <div class="d-flex justify-content-between align-items-center">
+
+        <!-- Typ -->
+        <div class="menu-type">
+            Moučníky        </div>
+    </div>
+
+    <!-- Název jídla -->
+    <div class="menu-name mt-1">
+         Meruňková  kapsa    </div>
+
+</div>
+
+
+        </div></div>
+<p><small>Na jídelním lístku je uvedena váha masa v syrovém stavu, u salátů a talířů celková hmotnost porce.</small></p>
+</div>
+ 
+
+     <noscript>
+     <div style="text-align:center"><b></b></div>
+     </noscript>
+     </div>
+   
+    </div>    
+  </div>
+</div>
+
+
+
+
+
+
+<!-- patička ================================================================================-->
+<div class="container position-relative mb-2">
+  <footer class="pt-3 mt-4 border-top">
+
+    <p class="mb-2">
+      <small>&copy; Správa účelových zařízení ČVUT v Praze 2026.</small>
+    </p>
+
+    <!-- Flex container: vlevo akční tlačítka, vpravo theme toggle -->
+    <div class="d-flex justify-content-between align-items-center flex-wrap">
+
+      <!-- LEVÁ skupina tlačítek -->
+      <div class="d-flex gap-2 mb-2">
+
+        <a href="mailto:&#106;&#105;&#100;&#101;&#108;&#110;&#105;&#099;&#107;&#121;&#064;&#099;&#118;&#117;&#116;&#046;&#099;&#122;"
+           class="btn btn-secondary btn-sm">
+          <i class="bi bi-envelope-fill"></i>&nbsp;Správa webu, připomínky, dotazy        </a>
+
+        <a href="https://www.suz.cvut.cz/" target="_blank" 
+           class="btn btn-secondary btn-sm">
+          <i class="bi bi-globe"></i>&nbsp;Správa účelových zařízení ČVUT        </a>
+
+      </div>    
+
+    </div>
+
+    <p class="mt-1 mb-2 text-muted">
+      <small>
+        <i class="bi bi-bootstrap-fill"></i>
+        Powered by <a href="https://getbootstrap.com/" target="_blank" class="text-decoration-none">Bootstrap</a>
+      </small>
+    </p>
+
+  </footer>
+</div><!-- ========================================================================================-->
+    
+    
+<!-- script ================================================================================-->
+<script>
+     const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+     const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+     const popoverTriggerList = document.querySelectorAll('[data-bs-toggle="popover"]')
+     const popoverList = [...popoverTriggerList].map(popoverTriggerEl => new bootstrap.Popover(popoverTriggerEl))
+
+//-----------------------------------------------------------------------------------------------------------------   
+  
+//--------------------------------------------------------------------------------------------------------------------    
+</script> 
+
+
+
+  </body>
+</html>

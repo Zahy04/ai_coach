@@ -7,6 +7,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import cz.rzahr.aicoach.data.db.dao.ChatMessageDao
 import cz.rzahr.aicoach.data.db.dao.FactDao
 import cz.rzahr.aicoach.data.db.dao.FoodEntryDao
+import cz.rzahr.aicoach.data.db.dao.MensaMealDao
 import cz.rzahr.aicoach.data.db.dao.ProgressPhotoDao
 import cz.rzahr.aicoach.data.db.dao.WaterEntryDao
 import cz.rzahr.aicoach.data.db.dao.WeightEntryDao
@@ -14,6 +15,7 @@ import cz.rzahr.aicoach.data.db.dao.WorkoutEntryDao
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
 import cz.rzahr.aicoach.data.db.entity.FactEntity
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
+import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.data.db.entity.ProgressPhotoEntity
 import cz.rzahr.aicoach.data.db.entity.WaterEntryEntity
 import cz.rzahr.aicoach.data.db.entity.WeightEntryEntity
@@ -27,9 +29,10 @@ import cz.rzahr.aicoach.data.db.entity.WorkoutEntryEntity
         WorkoutEntryEntity::class,
         FactEntity::class,
         ProgressPhotoEntity::class,
-        WaterEntryEntity::class
+        WaterEntryEntity::class,
+        MensaMealEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -40,6 +43,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun factDao(): FactDao
     abstract fun progressPhotoDao(): ProgressPhotoDao
     abstract fun waterEntryDao(): WaterEntryDao
+    abstract fun mensaMealDao(): MensaMealDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -62,6 +66,27 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_3_4 = object : Migration(3, 4) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("DROP TABLE IF EXISTS meal_templates")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS mensa_meals (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "systemId INTEGER NOT NULL, " +
+                        "weekKey TEXT NOT NULL, " +
+                        "epochDay INTEGER NOT NULL, " +
+                        "category TEXT NOT NULL, " +
+                        "name TEXT NOT NULL, " +
+                        "grams INTEGER, " +
+                        "kcalMin INTEGER, " +
+                        "kcalMax INTEGER, " +
+                        "proteinG REAL, " +
+                        "carbsG REAL, " +
+                        "fatG REAL, " +
+                        "rating TEXT)"
+                )
             }
         }
     }

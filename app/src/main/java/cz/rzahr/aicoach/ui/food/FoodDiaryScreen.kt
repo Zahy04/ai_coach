@@ -13,12 +13,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -48,6 +50,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
 import cz.rzahr.aicoach.ui.components.EmptyState
 import cz.rzahr.aicoach.ui.components.GlowProgressRing
+import cz.rzahr.aicoach.ui.components.bounceClick
 import cz.rzahr.aicoach.ui.theme.extendedColors
 import cz.rzahr.aicoach.util.formatDayHeader
 import cz.rzahr.aicoach.util.formatTime
@@ -56,6 +59,7 @@ import cz.rzahr.aicoach.util.toLocalDate
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun FoodDiaryScreen(
+    onOpenMensa: () -> Unit,
     viewModel: FoodViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entriesDesc.collectAsStateWithLifecycle()
@@ -80,36 +84,65 @@ fun FoodDiaryScreen(
             )
         }
     ) { padding ->
-        if (entries.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                verticalArrangement = Arrangement.Center
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+        ) {
+            Card(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp)
+                    .bounceClick(onClick = onOpenMensa)
             ) {
-                EmptyState(
-                    icon = Icons.Filled.Add,
-                    title = "Zatím žádná jídla",
-                    description = "Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +."
-                )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .padding(padding)
-                    .fillMaxSize(),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                grouped.forEach { (day, dayEntries) ->
-                    item(key = "day_$day") {
-                        DayCard(
-                            dayEntries = dayEntries,
-                            dayHeader = capitalize(day.formatDayHeader()),
-                            calorieGoal = calorieGoal,
-                            onDeleteEntry = { viewModel.delete(it) },
-                            onEditEntry = { editEntry = it }
+                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        Icons.Filled.Restaurant,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Column(Modifier.weight(1f)) {
+                        Text("Menza ČVUT", style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            "Dnešní obědy · fitness hodnocení",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    Text("›", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+
+            Box(Modifier.weight(1f)) {
+                if (entries.isEmpty()) {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        EmptyState(
+                            icon = Icons.Filled.Add,
+                            title = "Zatím žádná jídla",
+                            description = "Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +."
+                        )
+                    }
+                } else {
+                    LazyColumn(
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        grouped.forEach { (day, dayEntries) ->
+                            item(key = "day_$day") {
+                                DayCard(
+                                    dayEntries = dayEntries,
+                                    dayHeader = capitalize(day.formatDayHeader()),
+                                    calorieGoal = calorieGoal,
+                                    onDeleteEntry = { viewModel.delete(it) },
+                                    onEditEntry = { editEntry = it }
+                                )
+                            }
+                        }
                     }
                 }
             }

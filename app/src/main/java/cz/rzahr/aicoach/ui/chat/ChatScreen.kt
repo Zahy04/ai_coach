@@ -33,6 +33,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.AddPhotoAlternate
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -74,6 +76,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -119,6 +122,9 @@ fun ChatScreen(
     val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val pendingImagePath by viewModel.pendingImagePath.collectAsStateWithLifecycle()
+    val currentModel by viewModel.model.collectAsStateWithLifecycle()
+    val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
+    val modelsLoading by viewModel.modelsLoading.collectAsStateWithLifecycle()
     var input by rememberSaveable { mutableStateOf("") }
     var confirmClear by remember { mutableStateOf(false) }
     val listState = rememberLazyListState()
@@ -196,12 +202,76 @@ fun ChatScreen(
         }
     }
 
+    LaunchedEffect(hasApiKey) {
+        if (hasApiKey && availableModels.isEmpty()) {
+            viewModel.loadModels()
+        }
+    }
+
+    var modelMenuExpanded by remember { mutableStateOf(false) }
+
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Chat s trenérem") },
+                title = {
+                    Column {
+                        Text("Chat s trenérem")
+                        Text(
+                            currentModel.removePrefix("gemini-"),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                },
                 actions = {
+                    Box {
+                        IconButton(onClick = { modelMenuExpanded = true }) {
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Změnit model")
+                        }
+                        DropdownMenu(
+                            expanded = modelMenuExpanded,
+                            onDismissRequest = { modelMenuExpanded = false }
+                        ) {
+                            if (modelsLoading) {
+                                DropdownMenuItem(
+                                    text = { Text("Načítám modely…") },
+                                    onClick = {},
+                                    enabled = false
+                                )
+                            } else if (availableModels.isEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Modely se nepodařilo načíst — zkus znovu") },
+                                    onClick = { viewModel.loadModels() }
+                                )
+                            } else {
+                                availableModels.forEach { candidate ->
+                                    DropdownMenuItem(
+                                        text = {
+                                            Text(
+                                                candidate,
+                                                color = if (candidate == currentModel) {
+                                                    MaterialTheme.colorScheme.primary
+                                                } else {
+                                                    MaterialTheme.colorScheme.onSurface
+                                                },
+                                                fontWeight = if (candidate == currentModel) FontWeight.Bold else null
+                                            )
+                                        },
+                                        trailingIcon = {
+                                            if (candidate == currentModel) {
+                                                Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                                            }
+                                        },
+                                        onClick = {
+                                            viewModel.selectModel(candidate)
+                                            modelMenuExpanded = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
+                    }
                     if (messages.isNotEmpty()) {
                         IconButton(onClick = { confirmClear = true }) {
                             Icon(Icons.Filled.Delete, contentDescription = "Smazat chat")

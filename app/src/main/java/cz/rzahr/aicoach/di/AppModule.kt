@@ -27,7 +27,12 @@ object AppModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "ai_coach.db")
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5
+            )
             .build()
 
     @Provides
@@ -50,6 +55,9 @@ object AppModule {
 
     @Provides
     fun provideWaterEntryDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.WaterEntryDao = db.waterEntryDao()
+
+    @Provides
+    fun provideMensaMealDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.MensaMealDao = db.mensaMealDao()
 
     @Provides
     @Singleton

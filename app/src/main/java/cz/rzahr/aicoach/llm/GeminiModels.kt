@@ -69,7 +69,8 @@ data class FunctionDeclaration(
 
 @Serializable
 data class GenerationConfig(
-    val temperature: Float? = null
+    val temperature: Float? = null,
+    val responseMimeType: String? = null
 )
 
 @Serializable

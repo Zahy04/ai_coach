@@ -68,20 +68,24 @@ fun SettingsScreen(
     val modelsLoading by viewModel.modelsLoading.collectAsStateWithLifecycle()
     val waterGoal by viewModel.waterGoal.collectAsStateWithLifecycle()
     val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
+    val githubPat by viewModel.githubPat.collectAsStateWithLifecycle()
+    val issueSending by viewModel.issueSending.collectAsStateWithLifecycle()
 
-    var keyInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var newKeyInput by rememberSaveable { mutableStateOf("") }
     var modelInput by rememberSaveable { mutableStateOf<String?>(null) }
     var calorieGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var proteinGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var waterGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var goalWeightInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var newPatInput by rememberSaveable { mutableStateOf("") }
+    var patVisible by rememberSaveable { mutableStateOf(false) }
     var keyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
+    var showIssueDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
-    LaunchedEffect(apiKey, model, calorieGoal, proteinGoal) {
-        if (keyInput == null) keyInput = apiKey
+    LaunchedEffect(model, calorieGoal, proteinGoal) {
         if (modelInput == null) modelInput = model
         if (calorieGoalInput == null) calorieGoalInput = calorieGoal.toString()
         if (proteinGoalInput == null) proteinGoalInput = proteinGoal.toString()
@@ -125,10 +129,16 @@ fun SettingsScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Gemini API", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        if (apiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (apiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
                     OutlinedTextField(
-                        value = keyInput ?: "",
-                        onValueChange = { keyInput = it },
-                        label = { Text("API klíč") },
+                        value = newKeyInput,
+                        onValueChange = { newKeyInput = it },
+                        label = { Text("Nový API klíč") },
+                        placeholder = { Text("Nech prázdné pro ponechání") },
                         singleLine = true,
                         visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -176,8 +186,13 @@ fun SettingsScreen(
                     }
                     Button(
                         onClick = {
-                            viewModel.save(keyInput.orEmpty(), modelInput.orEmpty())
-                            scope.launch { snackbarHostState.showSnackbar("Uloženo.") }
+                            viewModel.save(modelInput.orEmpty(), newKeyInput.takeIf { it.isNotBlank() })
+                            scope.launch {
+                                snackbarHostState.showSnackbar(
+                                    if (newKeyInput.isNotBlank()) "Uloženo (klíč i model)." else "Model uložen. Klíč zůstal."
+                                )
+                            }
+                            newKeyInput = ""
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -243,6 +258,42 @@ fun SettingsScreen(
                 }
             }
 
+            SectionHeader("Zpětná vazba")
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        if (githubPat.isNotBlank()) "✓ Token je uložen" else "⚠ Token chybí",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (githubPat.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                    OutlinedTextField(
+                        value = newPatInput,
+                        onValueChange = { newPatInput = it },
+                        label = { Text("Nový GitHub token (PAT)") },
+                        placeholder = { Text("Nech prázdné pro ponechání") },
+                        singleLine = true,
+                        visualTransformation = if (patVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        "Vytvoř na github.com/settings/personal-access-tokens/new token pro repozitář ai_coach s oprávněním „Issues: Read and write“. Ulož ho sem a pak můžeš hlásit problémy přímo z aplikace.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = {
+                            viewModel.saveGithubPat(newPatInput.takeIf { it.isNotBlank() })
+                            newPatInput = ""
+                            scope.launch { snackbarHostState.showSnackbar("Token uložen.") }
+                        }) { Text("Uložit token") }
+                        OutlinedButton(onClick = { showIssueDialog = true }) {
+                            Text("Nahlásit problém")
+                        }
+                    }
+                }
+            }
+
             SectionHeader("Nápověda")
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -257,6 +308,60 @@ fun SettingsScreen(
                 }
             }
         }
+    }
+
+    var issueTitle by remember { mutableStateOf("") }
+    var issueDescription by remember { mutableStateOf("") }
+
+    if (showIssueDialog) {
+        AlertDialog(
+            onDismissRequest = { if (!issueSending) showIssueDialog = false },
+            title = { Text("Nahlásit problém") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = issueTitle,
+                        onValueChange = { issueTitle = it },
+                        label = { Text("Název") },
+                        singleLine = true
+                    )
+                    OutlinedTextField(
+                        value = issueDescription,
+                        onValueChange = { issueDescription = it },
+                        label = { Text("Popis — co se stalo?") },
+                        minLines = 3,
+                        maxLines = 8
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        viewModel.sendIssue(issueTitle, issueDescription) { result ->
+                            scope.launch {
+                                result.fold(
+                                    onSuccess = { url ->
+                                        snackbarHostState.showSnackbar("Issue vytvořeno: $url")
+                                        issueTitle = ""
+                                        issueDescription = ""
+                                        showIssueDialog = false
+                                    },
+                                    onFailure = { e ->
+                                        snackbarHostState.showSnackbar("Chyba: ${e.message}")
+                                    }
+                                )
+                            }
+                        }
+                    },
+                    enabled = !issueSending && issueTitle.isNotBlank()
+                ) {
+                    Text(if (issueSending) "Odesílám…" else "Vytvořit issue")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showIssueDialog = false }) { Text("Zrušit") }
+            }
+        )
     }
 
     if (showModelDialog) {

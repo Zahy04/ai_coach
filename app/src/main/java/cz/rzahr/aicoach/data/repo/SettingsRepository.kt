@@ -25,6 +25,21 @@ class SettingsRepository @Inject constructor(
     private val keyProteinGoal = intPreferencesKey("daily_protein_goal")
     private val keyWaterGoal = intPreferencesKey("daily_water_goal_ml")
     private val keyGoalWeight = doublePreferencesKey("goal_weight_kg")
+    private val keyGithubPat = stringPreferencesKey("github_pat")
+    private val keyMensaLastFetchDay = stringPreferencesKey("mensa_last_fetch_day")
+
+    val githubPat: Flow<String> = context.dataStore.data.map { it[keyGithubPat].orEmpty() }
+
+    suspend fun setGithubPat(value: String) {
+        context.dataStore.edit { it[keyGithubPat] = value.trim() }
+    }
+
+    val mensaLastFetchDay: Flow<String> =
+        context.dataStore.data.map { it[keyMensaLastFetchDay].orEmpty() }
+
+    suspend fun setMensaLastFetchDay(value: String) {
+        context.dataStore.edit { it[keyMensaLastFetchDay] = value }
+    }
 
     val dailyWaterGoal: Flow<Int> =
         context.dataStore.data.map { it[keyWaterGoal] ?: DEFAULT_WATER_GOAL_ML }

@@ -38,8 +38,35 @@ class ChatViewModel @Inject constructor(
     private val foodRepository: FoodRepository,
     private val weightRepository: WeightRepository,
     private val workoutRepository: WorkoutRepository,
-    settingsRepository: SettingsRepository
+    private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    val model: StateFlow<String> = settingsRepository.model
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
+
+    private val _availableModels = MutableStateFlow<List<String>>(emptyList())
+    val availableModels: StateFlow<List<String>> = _availableModels.asStateFlow()
+
+    private val _modelsLoading = MutableStateFlow(false)
+    val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
+
+    fun loadModels() {
+        if (_modelsLoading.value) return
+        viewModelScope.launch {
+            _modelsLoading.value = true
+            try {
+                _availableModels.value = geminiClient.fetchModelNames()
+            } catch (_: Exception) {
+                // tiché selhání — lze zadat ručně v Nastavení
+            } finally {
+                _modelsLoading.value = false
+            }
+        }
+    }
+
+    fun selectModel(model: String) {
+        viewModelScope.launch { settingsRepository.setModel(model) }
+    }
 
     val messages: StateFlow<List<ChatMessageEntity>> = chatRepository.observeMessages()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
