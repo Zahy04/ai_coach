@@ -31,6 +31,12 @@ class SettingsViewModel @Inject constructor(
     val proteinGoal: StateFlow<Int> = settingsRepository.dailyProteinGoal
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_PROTEIN_GOAL)
 
+    val waterGoal: StateFlow<Int> = settingsRepository.dailyWaterGoal
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_WATER_GOAL_ML)
+
+    val goalWeightKg: StateFlow<Double?> = settingsRepository.goalWeightKg
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
     private val _availableModels = MutableStateFlow<List<String>>(emptyList())
     val availableModels: StateFlow<List<String>> = _availableModels.asStateFlow()
 
@@ -49,6 +55,14 @@ class SettingsViewModel @Inject constructor(
             settingsRepository.setDailyCalorieGoal(calorieGoal)
             settingsRepository.setDailyProteinGoal(proteinGoal)
         }
+    }
+
+    fun saveWaterGoal(waterGoalMl: Int) {
+        viewModelScope.launch { settingsRepository.setDailyWaterGoal(waterGoalMl) }
+    }
+
+    fun saveGoalWeight(weightKg: Double?) {
+        viewModelScope.launch { settingsRepository.setGoalWeightKg(weightKg) }
     }
 
     fun loadModels() {

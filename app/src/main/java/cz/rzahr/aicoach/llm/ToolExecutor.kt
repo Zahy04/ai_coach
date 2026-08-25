@@ -2,6 +2,7 @@ package cz.rzahr.aicoach.llm
 
 import cz.rzahr.aicoach.data.repo.FactRepository
 import cz.rzahr.aicoach.data.repo.FoodRepository
+import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
 import java.util.Locale
@@ -19,6 +20,15 @@ class TurnContext {
     val loggedFoods = mutableSetOf<String>()
 }
 
+/** Makra vyřešená pro konkrétní porci. */
+data class ResolvedNutrition(
+    val calories: Int?,
+    val proteinG: Double?,
+    val carbsG: Double?,
+    val fatG: Double?,
+    val refGrams: Double?
+)
+
 data class ToolExecutionResult(
     val event: String?,
     val response: JsonObject
@@ -29,7 +39,9 @@ class ToolExecutor @Inject constructor(
     private val weightRepository: WeightRepository,
     private val foodRepository: FoodRepository,
     private val workoutRepository: WorkoutRepository,
-    private val factRepository: FactRepository
+    private val factRepository: FactRepository,
+    private val waterRepository: WaterRepository,
+    private val openFoodFactsClient: OpenFoodFactsClient
 ) {
 
     suspend fun execute(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult = try {
@@ -37,6 +49,7 @@ class ToolExecutor @Inject constructor(
         when (name) {
             ToolSpecs.SAVE_WEIGHT -> saveWeight(call)
             ToolSpecs.LOG_FOOD -> logFood(call, turnContext)
+            ToolSpecs.LOG_WATER -> logWater(call)
             ToolSpecs.LOG_WORKOUT -> logWorkout(call)
             ToolSpecs.SAVE_FACT -> saveFact(call)
             ToolSpecs.DELETE_FACT -> deleteFact(call)
@@ -58,6 +71,7 @@ class ToolExecutor @Inject constructor(
     private suspend fun logFood(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult {
         val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
             ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr name."))
+        val quantityG = call.args?.get("quantity_g")?.jsonPrimitive?.doubleOrNull
 
         val dedupeKey = name.trim().lowercase()
         if (dedupeKey in turnContext.loggedFoods) {
@@ -71,23 +85,72 @@ class ToolExecutor @Inject constructor(
         }
         turnContext.loggedFoods.add(dedupeKey)
 
-        val calories = call.args?.get("calories")?.jsonPrimitive?.intOrNull
-        val protein = call.args?.get("protein_g")?.jsonPrimitive?.doubleOrNull
-        val carbs = call.args?.get("carbs_g")?.jsonPrimitive?.doubleOrNull
-        val fat = call.args?.get("fat_g")?.jsonPrimitive?.doubleOrNull
+        // 1) Open Food Facts → 2) odhad modelu
+        var sourceLabel = "odhad"
+        var source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_CHAT
+        var resolvedName = name
+        var resolved: ResolvedNutrition
+
+        val off = openFoodFactsClient.search(name)
+        if (off != null) {
+            val factor = (quantityG ?: 100.0) / 100.0
+            resolved = ResolvedNutrition(
+                calories = off.caloriesPer100g?.let { (it * factor).toInt() },
+                proteinG = off.proteinPer100g?.times(factor),
+                carbsG = off.carbsPer100g?.times(factor),
+                fatG = off.fatPer100g?.times(factor),
+                refGrams = quantityG ?: 100.0
+            )
+            if (off.productName.isNotBlank()) resolvedName = "$name (${off.productName})"
+            sourceLabel = "Open Food Facts"
+            source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_API
+        } else {
+            resolved = ResolvedNutrition(
+                calories = call.args?.get("calories")?.jsonPrimitive?.intOrNull,
+                proteinG = call.args?.get("protein_g")?.jsonPrimitive?.doubleOrNull,
+                carbsG = call.args?.get("carbs_g")?.jsonPrimitive?.doubleOrNull,
+                fatG = call.args?.get("fat_g")?.jsonPrimitive?.doubleOrNull,
+                refGrams = quantityG
+            )
+        }
+
         foodRepository.add(
             name = name,
-            calories = calories,
-            proteinG = protein,
-            carbsG = carbs,
-            fatG = fat
+            calories = resolved.calories,
+            proteinG = resolved.proteinG,
+            carbsG = resolved.carbsG,
+            fatG = resolved.fatG,
+            source = source
         )
+
         val event = buildString {
-            append("Jídlo „$name“ uloženo")
-            calories?.let { append(" ($it kcal)") }
+            append("Jídlo „$resolvedName“ uloženo")
+            resolved.calories?.let { append(" (${formatNumber(it)} kcal)") }
+            append(" · zdroj: $sourceLabel")
+            quantityG?.let { append(", ~${formatNumber(it.toInt())} g") }
             append(".")
         }
-        return ToolExecutionResult(event, ToolSpecs.okResult())
+        return ToolExecutionResult(event, buildJsonObject {
+            put("status", "ok")
+            put("source", sourceLabel)
+            put("quantity_grams", quantityG ?: 100.0)
+            resolved.calories?.let { put("calories", it) }
+            resolved.proteinG?.let { put("protein_g", it) }
+            resolved.carbsG?.let { put("carbs_g", it) }
+            resolved.fatG?.let { put("fat_g", it) }
+        })
+    }
+
+    private suspend fun logWater(call: FunctionCall): ToolExecutionResult {
+        val amountMl = call.args?.get("amount_ml")?.jsonPrimitive?.intOrNull ?: 250
+        waterRepository.add(amountMl)
+        return ToolExecutionResult(
+            "Voda +$amountMl ml.",
+            buildJsonObject {
+                put("status", "ok")
+                put("logged_ml", amountMl)
+            }
+        )
     }
 
     private suspend fun logWorkout(call: FunctionCall): ToolExecutionResult {
@@ -123,6 +186,9 @@ class ToolExecutor @Inject constructor(
         factRepository.delete(factId)
         return ToolExecutionResult("Poznámka #$factId smazána.", ToolSpecs.okResult())
     }
+
+    private fun formatNumber(value: Int): String =
+        String.format(Locale.forLanguageTag("cs"), "%d", value)
 
     private fun kotlinx.serialization.json.JsonPrimitive.contentOrNull(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content

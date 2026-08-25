@@ -47,6 +47,11 @@ class FactRepository @Inject constructor(
         return UpsertResult(id = newId, created = true)
     }
 
+    suspend fun updateContent(id: Long, content: String) {
+        val fact = dao.byId(id) ?: return
+        dao.update(id, fact.category, content.trim(), System.currentTimeMillis())
+    }
+
     suspend fun delete(id: Long) = dao.deleteById(id)
 
     private fun normalizeCategory(category: String): String {

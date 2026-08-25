@@ -9,6 +9,7 @@ import cz.rzahr.aicoach.data.repo.FactRepository
 import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.PhotoRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
+import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
 import cz.rzahr.aicoach.util.toLocalDate
@@ -21,19 +22,22 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @HiltViewModel
 class DashboardViewModel @Inject constructor(
     foodRepository: FoodRepository,
     weightRepository: WeightRepository,
-    factRepository: FactRepository,
+    private val factRepository: FactRepository,
     workoutRepository: WorkoutRepository,
     photoRepository: PhotoRepository,
-    settingsRepository: SettingsRepository
+    settingsRepository: SettingsRepository,
+    private val waterRepository: WaterRepository
 ) : ViewModel() {
 
     /** Emitne vždy při přechodu na nový den, aby se "dnešní" data aktualizovala. */
@@ -104,4 +108,69 @@ class DashboardViewModel @Inject constructor(
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), List(7) { 0 })
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val waterToday: StateFlow<Int> = dayTicker
+        .flatMapLatest { waterRepository.observeTodayMl() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val waterGoal: StateFlow<Int> = settingsRepository.dailyWaterGoal
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_WATER_GOAL_ML)
+
+    val goalWeightKg: StateFlow<Double?> = settingsRepository.goalWeightKg
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Počet dní v řadě, kdy uživatel zapsal váhu NEBO jídlo. */
+    val streakDays: StateFlow<Int> = combine(
+        foodRepository.observeAllDesc(),
+        weightRepository.observeAllDesc()
+    ) { foods, weights ->
+        val loggedDays = buildSet {
+            foods.forEach { add(it.timestamp.toLocalDate()) }
+            weights.forEach { add(it.timestamp.toLocalDate()) }
+        }
+        var count = 0
+        var day = LocalDate.now()
+        if (day !in loggedDays) day = day.minusDays(1)
+        while (day in loggedDays) {
+            count++
+            day = day.minusDays(1)
+        }
+        count
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val badges: StateFlow<List<Badge>> = combine(
+        streakDays,
+        weightRepository.observeAllDesc(),
+        foodRepository.observeAllDesc(),
+        photoRepository.observeCount()
+    ) { streak, weights, foods, photos ->
+        listOf(
+            Badge("3 dny v řadě", streak >= 3),
+            Badge("7 dní v řadě", streak >= 7),
+            Badge("30 dní v řadě", streak >= 30),
+            Badge("10 vážení", weights.size >= 10),
+            Badge("50 jídel", foods.size >= 50),
+            Badge("20 fotek", photos >= 20)
+        )
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun addWater(amountMl: Int) {
+        viewModelScope.launch { waterRepository.add(amountMl) }
+    }
+
+    fun updateFact(id: Long, content: String) {
+        viewModelScope.launch {
+            if (content.isNotBlank()) factRepository.updateContent(id, content)
+        }
+    }
+
+    fun deleteFact(id: Long) {
+        viewModelScope.launch { factRepository.delete(id) }
+    }
 }
+
+data class Badge(
+    val label: String,
+    val earned: Boolean
+)

@@ -66,11 +66,15 @@ fun SettingsScreen(
     val proteinGoal by viewModel.proteinGoal.collectAsStateWithLifecycle()
     val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
     val modelsLoading by viewModel.modelsLoading.collectAsStateWithLifecycle()
+    val waterGoal by viewModel.waterGoal.collectAsStateWithLifecycle()
+    val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
 
     var keyInput by rememberSaveable { mutableStateOf<String?>(null) }
     var modelInput by rememberSaveable { mutableStateOf<String?>(null) }
     var calorieGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var proteinGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var waterGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
+    var goalWeightInput by rememberSaveable { mutableStateOf<String?>(null) }
     var keyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -81,6 +85,13 @@ fun SettingsScreen(
         if (modelInput == null) modelInput = model
         if (calorieGoalInput == null) calorieGoalInput = calorieGoal.toString()
         if (proteinGoalInput == null) proteinGoalInput = proteinGoal.toString()
+    }
+
+    LaunchedEffect(waterGoal, goalWeightKg) {
+        if (waterGoalInput == null) waterGoalInput = waterGoal.toString()
+        if (goalWeightInput == null) {
+            goalWeightInput = goalWeightKg?.let { String.format(java.util.Locale.forLanguageTag("cs"), "%.1f", it) }.orEmpty()
+        }
     }
 
     LaunchedEffect(apiKey) {
@@ -175,9 +186,10 @@ fun SettingsScreen(
                 }
             }
 
-            SectionHeader("Denní cíle")
+            SectionHeader("Cíle")
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Denní cíle", style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = calorieGoalInput ?: "",
@@ -196,12 +208,32 @@ fun SettingsScreen(
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        OutlinedTextField(
+                            value = waterGoalInput ?: "",
+                            onValueChange = { waterGoalInput = it },
+                            label = { Text("Voda (ml)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.weight(1f)
+                        )
+                        OutlinedTextField(
+                            value = goalWeightInput ?: "",
+                            onValueChange = { goalWeightInput = it },
+                            label = { Text("Cílová váha (kg)") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                     Button(
                         onClick = {
                             viewModel.saveGoals(
                                 (calorieGoalInput ?: "").toIntOrNull() ?: 0,
                                 (proteinGoalInput ?: "").toIntOrNull() ?: 0
                             )
+                            viewModel.saveWaterGoal((waterGoalInput ?: "").toIntOrNull() ?: 0)
+                            viewModel.saveGoalWeight((goalWeightInput ?: "").replace(',', '.').toDoubleOrNull())
                             scope.launch { snackbarHostState.showSnackbar("Cíle uloženy.") }
                         },
                         modifier = Modifier.fillMaxWidth()

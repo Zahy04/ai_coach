@@ -24,6 +24,19 @@ interface FoodEntryDao {
     @Insert
     suspend fun insert(entry: FoodEntryEntity): Long
 
+    @Query(
+        "UPDATE food_entries SET name = :name, calories = :calories, proteinG = :proteinG, " +
+            "carbsG = :carbsG, fatG = :fatG WHERE id = :id"
+    )
+    suspend fun update(
+        id: Long,
+        name: String,
+        calories: Int?,
+        proteinG: Double?,
+        carbsG: Double?,
+        fatG: Double?
+    )
+
     @Query("DELETE FROM food_entries WHERE id = :id")
     suspend fun deleteById(id: Long)
 }

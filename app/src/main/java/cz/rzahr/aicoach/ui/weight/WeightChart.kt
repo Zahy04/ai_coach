@@ -42,11 +42,13 @@ import cz.rzahr.aicoach.data.db.entity.WeightEntryEntity
 import cz.rzahr.aicoach.ui.theme.extendedColors
 import cz.rzahr.aicoach.util.TrendMath
 import cz.rzahr.aicoach.util.formatDate
+import java.time.Instant
 import java.util.Locale
 
 @Composable
 fun WeightChart(
     entries: List<WeightEntryEntity>,
+    goalWeightKg: Double? = null,
     modifier: Modifier = Modifier
 ) {
     val sorted = remember(entries) { entries.sortedBy { it.timestamp } }
@@ -109,9 +111,33 @@ fun WeightChart(
     }
     val maValues = remember(sorted) { TrendMath.movingAverage(rawValues, 7) }
 
-    // animace "vykreslení" grafu po načtení / změně dat
+    // Projekce k cíli: najdeme t > 1, kde trend protnutí cíl (max 2,5× horizontu dat)
+    val projectionT = remember(trend, goalWeightKg) {
+        val fit = trend
+        val goal = goalWeightKg
+        if (fit == null || goal == null) return@remember null
+        var previousDiff = fit.evaluate(1.0) - goal
+        if (kotlin.math.abs(previousDiff) < 0.01) return@remember null
+        var t = 1.0
+        while (t <= 2.5) {
+            t += 0.02
+            val diff = fit.evaluate(t) - goal
+            if (diff * previousDiff <= 0) return@remember t
+            previousDiff = diff
+        }
+        null
+    }
+    val domainMax = (projectionT?.let { maxOf(1.15, it * 1.04) }) ?: 1.0
+    val projectionDate = remember(projectionT, sorted) {
+        projectionT?.let { t ->
+            val firstMs = sorted.first().timestamp
+            val spanMs = sorted.last().timestamp - firstMs
+            Instant.ofEpochMilli(firstMs + (spanMs * t).toLong()).toEpochMilli()
+        }
+    }
+
     val drawProgress = remember { Animatable(0f) }
-    LaunchedEffect(sorted) {
+    LaunchedEffect(sorted, goalWeightKg) {
         drawProgress.snapTo(0f)
         drawProgress.animateTo(1f, animationSpec = tween(850, easing = FastOutSlowInEasing))
     }
@@ -144,13 +170,13 @@ fun WeightChart(
             val plotHeight = size.height - padTop - padBottom
             val n = sorted.size
             val progress = drawProgress.value
+            val domain = domainMax.toFloat()
 
-            fun xPos(index: Int): Float = padLeft + plotWidth * index / (n - 1)
+            fun xPosRaw(index: Int): Float =
+                padLeft + plotWidth * (index.toFloat() / (n - 1)) * (1f / domain)
+            fun xPosT(t: Float): Float = padLeft + plotWidth * (t / domain)
             fun yPos(value: Double): Float =
                 padTop + plotHeight * (1f - ((value - rawMin) / rawRange).toFloat())
-
-            fun yPosClamped(value: Double): Float =
-                yPos(value).coerceIn(padTop, padTop + plotHeight)
 
             listOf(0f, 0.5f, 1f).forEach { fraction ->
                 val y = padTop + plotHeight * fraction
@@ -166,12 +192,11 @@ fun WeightChart(
                 )
             }
 
-            // klouzavý průměr — přerušovaná čára, animovaně se objevuje
             if (maValues.isNotEmpty()) {
                 val visibleCount = (n * progress).toInt().coerceAtLeast(2).coerceAtMost(n)
                 val path = Path()
                 for (index in 0 until visibleCount) {
-                    val point = Offset(xPos(index), yPosClamped(maValues[index]))
+                    val point = Offset(xPosRaw(index), yPos(maValues[index]).coerceIn(padTop, padTop + plotHeight))
                     if (index == 0) path.moveTo(point.x, point.y) else path.lineTo(point.x, point.y)
                 }
                 drawPath(
@@ -185,23 +210,21 @@ fun WeightChart(
                 )
             }
 
-            // kvadratický/lineární trend s gradientní výplní
             if (trend != null && progress > 0f) {
                 val steps = 80
                 val visibleSteps = (steps * progress).toInt().coerceAtLeast(2)
                 val line = Path()
                 for (step in 0..visibleSteps) {
                     val t = step.toDouble() / steps
-                    val x = padLeft + plotWidth * t.toFloat()
-                    val y = yPosClamped(trend.evaluate(t))
-                    if (step == 0) line.moveTo(x, y) else line.lineTo(x, y)
+                    val point = Offset(xPosT(t.toFloat()), yPos(trend.evaluate(t)).coerceIn(padTop, padTop + plotHeight))
+                    if (step == 0) line.moveTo(point.x, point.y) else line.lineTo(point.x, point.y)
                 }
                 drawPath(line, trendColor, style = Stroke(width = 4f, cap = StrokeCap.Round))
 
                 if (progress > 0.98f) {
                     val fill = Path().apply {
                         addPath(line)
-                        lineTo(padLeft + plotWidth * visibleSteps / steps.toFloat(), padTop + plotHeight)
+                        lineTo(xPosT(visibleSteps / steps.toFloat()), padTop + plotHeight)
                         lineTo(padLeft, padTop + plotHeight)
                         close()
                     }
@@ -216,18 +239,47 @@ fun WeightChart(
                 }
             }
 
-            // měření — postupně problikávají
-            val visiblePoints = (n * progress).toInt().coerceAtLeast(1)
-            for (index in 0 until visiblePoints.coerceAtMost(n)) {
-                drawCircle(
-                    rawColor,
-                    radius = 4f,
-                    center = Offset(xPos(index), yPos(sorted[index].weightKg))
+            // projekce k cíli — přerušovaná čára za posledním bodem
+            if (projectionT != null && progress > 0.98f && trend != null) {
+                val projPath = Path()
+                var started = false
+                var t = 1.0
+                while (t <= projectionT + 1e-9) {
+                    val point = Offset(xPosT(t.toFloat()), yPos(trend.evaluate(t)).coerceIn(padTop, padTop + plotHeight))
+                    if (!started) {
+                        projPath.moveTo(point.x, point.y)
+                        started = true
+                    } else {
+                        projPath.lineTo(point.x, point.y)
+                    }
+                    t += 0.04
+                }
+                drawPath(
+                    projPath,
+                    trendColor.copy(alpha = 0.75f),
+                    style = Stroke(
+                        width = 3f,
+                        cap = StrokeCap.Round,
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
+                    )
+                )
+                val goalPoint = Offset(xPosT(projectionT.toFloat()), yPos(goalWeightKg!!))
+                drawCircle(trendColor.copy(alpha = 0.9f), radius = 7f, center = goalPoint, style = Stroke(width = 3f))
+                drawLine(
+                    trendColor.copy(alpha = 0.5f),
+                    start = Offset(padLeft, yPos(goalWeightKg)),
+                    end = Offset(size.width - padX, yPos(goalWeightKg)),
+                    strokeWidth = 1f,
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f))
                 )
             }
 
-            // pulzující bod na nejnovějším měření
-            val lastPoint = Offset(xPos(n - 1), yPos(sorted.last().weightKg))
+            val visiblePoints = (n * progress).toInt().coerceAtLeast(1)
+            for (index in 0 until visiblePoints.coerceAtMost(n)) {
+                drawCircle(rawColor, radius = 4f, center = Offset(xPosRaw(index), yPos(sorted[index].weightKg)))
+            }
+
+            val lastPoint = Offset(xPosRaw(n - 1), yPos(sorted.last().weightKg))
             drawCircle(trendColor.copy(alpha = pulseAlpha), radius = pulseRadius, center = lastPoint)
             drawCircle(trendColor, radius = 5.5f, center = lastPoint)
         }
@@ -243,11 +295,32 @@ fun WeightChart(
                 modifier = Modifier.padding(start = 46.dp)
             )
             Text(
-                sorted.last().timestamp.formatDate(),
+                projectionDate?.formatDate() ?: sorted.last().timestamp.formatDate(),
                 style = MaterialTheme.typography.labelSmall,
-                color = labelColor,
+                color = if (projectionDate != null) trendColor else labelColor,
                 modifier = Modifier.padding(end = 16.dp)
             )
+        }
+
+        if (projectionT != null && goalWeightKg != null && projectionDate != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = 2.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .background(MaterialTheme.colorScheme.primary, CircleShape)
+                )
+                Text(
+                    " Při současném tempu ≈ ${projectionDate.formatDate()} dosáhneš " +
+                        "${String.format(Locale.forLanguageTag("cs"), "%.1f", goalWeightKg)} kg",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
 
         Row(

@@ -1,5 +1,7 @@
 package cz.rzahr.aicoach.ui.weight
 
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +50,9 @@ fun WeightScreen(
     viewModel: WeightViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entriesDesc.collectAsStateWithLifecycle()
+    val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
+    var editEntry by remember { mutableStateOf<WeightEntryEntity?>(null) }
     var periodDays by rememberSaveable { mutableStateOf<Int?>(90) }
 
     val filteredEntries = remember(entries, periodDays) {
@@ -100,14 +104,35 @@ fun WeightScreen(
                             )
                         }
                         Spacer(Modifier.height(8.dp))
-                        WeightChart(filteredEntries)
+                        WeightChart(filteredEntries, goalWeightKg)
                     }
                 }
             }
             items(entries, key = { it.id }) { entry ->
-                WeightRow(entry = entry, onDelete = { viewModel.delete(entry.id) })
+                WeightRow(
+                    entry = entry,
+                    onDelete = { viewModel.delete(entry.id) },
+                    onEdit = {
+                        editEntry = entry
+                    }
+                )
             }
         }
+    }
+
+    editEntry?.let { entry ->
+        EditWeightDialog(
+            initial = entry,
+            onDismiss = { editEntry = null },
+            onSave = { weight, note ->
+                viewModel.update(entry.id, weight, note)
+                editEntry = null
+            },
+            onDelete = {
+                viewModel.delete(entry.id)
+                editEntry = null
+            }
+        )
     }
 
     if (showAddDialog) {
@@ -121,11 +146,18 @@ fun WeightScreen(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun WeightRow(entry: WeightEntryEntity, onDelete: () -> Unit) {
+private fun WeightRow(
+    entry: WeightEntryEntity,
+    onDelete: () -> Unit,
+    onEdit: () -> Unit
+) {
     Card(Modifier.fillMaxWidth()) {
         Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+            Modifier
+                .combinedClickable(onClick = onEdit, onLongClick = onDelete)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(Modifier.weight(1f)) {
@@ -147,6 +179,56 @@ private fun WeightRow(entry: WeightEntryEntity, onDelete: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun EditWeightDialog(
+    initial: WeightEntryEntity,
+    onDismiss: () -> Unit,
+    onSave: (Double, String?) -> Unit,
+    onDelete: () -> Unit
+) {
+    var weightText by rememberSaveable {
+        mutableStateOf(String.format(Locale.forLanguageTag("cs"), "%.1f", initial.weightKg))
+    }
+    var noteText by rememberSaveable { mutableStateOf(initial.note.orEmpty()) }
+    val parsed = weightText.replace(',', '.').toDoubleOrNull()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Upravit záznam") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = weightText,
+                    onValueChange = { weightText = it },
+                    label = { Text("Váha (kg)") },
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
+                )
+                OutlinedTextField(
+                    value = noteText,
+                    onValueChange = { noteText = it },
+                    label = { Text("Poznámka (nepovinné)") },
+                    singleLine = true
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(parsed!!, noteText.takeIf { it.isNotBlank() }) },
+                enabled = parsed != null && parsed in 20.0..400.0
+            ) { Text("Uložit") }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = onDelete) {
+                    Text("Smazat", color = MaterialTheme.colorScheme.error)
+                }
+                TextButton(onClick = onDismiss) { Text("Zrušit") }
+            }
+        }
+    )
 }
 
 @Composable

@@ -1,6 +1,7 @@
 package cz.rzahr.aicoach.data.repo
 
 import android.content.Context
+import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
@@ -22,6 +23,28 @@ class SettingsRepository @Inject constructor(
     private val keyModel = stringPreferencesKey("model")
     private val keyCalorieGoal = intPreferencesKey("daily_calorie_goal")
     private val keyProteinGoal = intPreferencesKey("daily_protein_goal")
+    private val keyWaterGoal = intPreferencesKey("daily_water_goal_ml")
+    private val keyGoalWeight = doublePreferencesKey("goal_weight_kg")
+
+    val dailyWaterGoal: Flow<Int> =
+        context.dataStore.data.map { it[keyWaterGoal] ?: DEFAULT_WATER_GOAL_ML }
+
+    val goalWeightKg: Flow<Double?> =
+        context.dataStore.data.map { it[keyGoalWeight] }
+
+    suspend fun setDailyWaterGoal(value: Int) {
+        if (value > 0) context.dataStore.edit { it[keyWaterGoal] = value }
+    }
+
+    suspend fun setGoalWeightKg(value: Double?) {
+        context.dataStore.edit { prefs ->
+            if (value != null && value > 0) {
+                prefs[keyGoalWeight] = value
+            } else {
+                prefs.remove(keyGoalWeight)
+            }
+        }
+    }
 
     val apiKey: Flow<String> = context.dataStore.data.map { it[keyApiKey].orEmpty() }
 
@@ -53,5 +76,6 @@ class SettingsRepository @Inject constructor(
         const val DEFAULT_MODEL = "gemini-3.6-flash-lite"
         const val DEFAULT_CALORIE_GOAL = 2000
         const val DEFAULT_PROTEIN_GOAL = 130
+        const val DEFAULT_WATER_GOAL_ML = 2500
     }
 }

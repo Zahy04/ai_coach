@@ -10,6 +10,7 @@ object ToolSpecs {
 
     const val SAVE_WEIGHT = "save_weight"
     const val LOG_FOOD = "log_food"
+    const val LOG_WATER = "log_water"
     const val LOG_WORKOUT = "log_workout"
     const val SAVE_FACT = "save_fact"
     const val DELETE_FACT = "delete_fact"
@@ -42,6 +43,10 @@ object ToolSpecs {
                     putJsonObject("name") {
                         put("type", "string")
                         put("description", "Název jídla nebo nápoje, např. 'Ovesná kaše s banánem'")
+                    }
+                    putJsonObject("quantity_g") {
+                        put("type", "number")
+                        put("description", "Odhad množství v gramech (nebo mililitrech u nápojů). Vždy uveď, i když jen odhaduješ.")
                     }
                     putJsonObject("calories") {
                         put("type", "integer")
@@ -87,6 +92,19 @@ object ToolSpecs {
                     }
                 }
                 putJsonArray("required") { add(kotlinx.serialization.json.JsonPrimitive("name")) }
+            }
+        ),
+        FunctionDeclaration(
+            name = LOG_WATER,
+            description = "Zaznamená vypitou vodu. Volá se, když uživatel zmíní, že pil vodu.",
+            parameters = buildJsonObject {
+                put("type", "object")
+                putJsonObject("properties") {
+                    putJsonObject("amount_ml") {
+                        put("type", "integer")
+                        put("description", "Množství v mililitrech, např. 250 nebo 500. Pokud uživatel neřekne, použij 250.")
+                    }
+                }
             }
         ),
         FunctionDeclaration(

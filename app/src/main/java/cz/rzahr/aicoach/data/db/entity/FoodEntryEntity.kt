@@ -17,5 +17,7 @@ data class FoodEntryEntity(
     companion object {
         const val SOURCE_CHAT = "chat"
         const val SOURCE_MANUAL = "manual"
+        const val SOURCE_API = "api"
+        const val SOURCE_TEMPLATE = "template"
     }
 }

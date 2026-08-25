@@ -37,6 +37,12 @@ class FoodViewModel @Inject constructor(
         }
     }
 
+    fun update(id: Long, name: String, calories: Int?, proteinG: Double?, carbsG: Double?, fatG: Double?) {
+        viewModelScope.launch {
+            foodRepository.update(id, name, calories, proteinG, carbsG, fatG)
+        }
+    }
+
     fun delete(id: Long) {
         viewModelScope.launch { foodRepository.delete(id) }
     }

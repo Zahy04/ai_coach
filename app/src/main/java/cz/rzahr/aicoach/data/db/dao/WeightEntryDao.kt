@@ -18,6 +18,11 @@ interface WeightEntryDao {
     @Insert
     suspend fun insert(entry: WeightEntryEntity): Long
 
+    @Query(
+        "UPDATE weight_entries SET weightKg = :weightKg, note = :note WHERE id = :id"
+    )
+    suspend fun update(id: Long, weightKg: Double, note: String?)
+
     @Query("DELETE FROM weight_entries WHERE id = :id")
     suspend fun deleteById(id: Long)
 }

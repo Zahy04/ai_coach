@@ -15,6 +15,9 @@ interface FactDao {
     @Query("SELECT * FROM facts ORDER BY id ASC")
     suspend fun all(): List<FactEntity>
 
+    @Query("SELECT * FROM facts WHERE id = :id")
+    suspend fun byId(id: Long): FactEntity?
+
     @Query(
         "SELECT * FROM facts WHERE category = :category " +
             "AND LOWER(TRIM(content)) = :normalizedContent LIMIT 1"

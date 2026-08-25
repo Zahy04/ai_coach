@@ -3,6 +3,8 @@ package cz.rzahr.aicoach.ui.dashboard
 import androidx.compose.animation.core.animateIntAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,19 +27,30 @@ import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.MonitorWeight
 import androidx.compose.material.icons.filled.PhotoLibrary
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.WaterDrop
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +95,13 @@ fun DashboardScreen(
     val photoCount by viewModel.photoCount.collectAsStateWithLifecycle()
     val weekCalories by viewModel.weekCalories.collectAsStateWithLifecycle()
     val today by viewModel.todayDate.collectAsStateWithLifecycle()
+    val streakDays by viewModel.streakDays.collectAsStateWithLifecycle()
+    val badges by viewModel.badges.collectAsStateWithLifecycle()
+    val waterToday by viewModel.waterToday.collectAsStateWithLifecycle()
+    val waterGoal by viewModel.waterGoal.collectAsStateWithLifecycle()
+    val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
+    var editFact by remember { mutableStateOf<FactEntity?>(null) }
+    var editFactText by remember { mutableStateOf("") }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
@@ -122,9 +144,22 @@ fun DashboardScreen(
                         value = latestWeight?.let {
                             String.format(Locale.forLanguageTag("cs"), "%.1f kg", it.weightKg)
                         } ?: "—",
-                        subtitle = weightDelta?.let { delta ->
-                            val sign = if (delta > 0) "+" else ""
-                            "$sign${String.format(Locale.forLanguageTag("cs"), "%.1f", delta)} kg"
+                        subtitle = buildString {
+                            val goal = goalWeightKg
+                            val current = latestWeight?.weightKg
+                            if (goal != null && current != null) {
+                                val remaining = kotlin.math.abs(current - goal)
+                                append("cíl ${String.format(Locale.forLanguageTag("cs"), "%.1f", goal)} kg · zbývá ")
+                                append(String.format(Locale.forLanguageTag("cs"), "%.1f", remaining))
+                                append(" kg")
+                            } else {
+                                weightDelta?.let { delta ->
+                                    val sign = if (delta > 0) "+" else ""
+                                    append("$sign")
+                                    append(String.format(Locale.forLanguageTag("cs"), "%.1f", delta))
+                                    append(" kg")
+                                }
+                            }
                         },
                         modifier = Modifier.weight(1f),
                         onClick = { onOpenTab(Routes.WEIGHT) }
@@ -163,11 +198,73 @@ fun DashboardScreen(
             }
 
             StaggeredItem(index = 3) {
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Card(Modifier.weight(1f)) {
+                        Row(
+                            Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            TonalIcon(
+                                Icons.Filled.LocalFireDepartment,
+                                container = extendedColors().calories.copy(alpha = 0.22f),
+                                tint = extendedColors().calories
+                            )
+                            Spacer(Modifier.width(10.dp))
+                            Column {
+                                Text("$streakDays", style = MaterialTheme.typography.headlineSmall)
+                                Text(
+                                    if (streakDays == 1) "den v řadě" else if (streakDays in 2..4) "dny v řadě" else "dní v řadě",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    }
+                    Card(Modifier.weight(1f)) {
+                        Column(Modifier.padding(16.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                TonalIcon(
+                                    Icons.Filled.WaterDrop,
+                                    container = extendedColors().protein.copy(alpha = 0.22f),
+                                    tint = extendedColors().protein
+                                )
+                                Spacer(Modifier.width(10.dp))
+                                Column {
+                                    Text("$waterToday ml", style = MaterialTheme.typography.headlineSmall)
+                                    Text(
+                                        "/ $waterGoal ml",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            }
+                            Spacer(Modifier.height(8.dp))
+                            FilledTonalButton(
+                                onClick = { viewModel.addWater(250) },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("+250 ml")
+                            }
+                        }
+                    }
+                }
+            }
+
+            SectionHeader("Odznaky")
+            StaggeredItem(index = 4) {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    items(badges) { badge ->
+                        BadgeChip(badge)
+                    }
+                }
+            }
+
+            StaggeredItem(index = 5) {
                 WeeklySummaryCard(onClick = onWeeklySummary)
             }
 
             SectionHeader("Co o tobě vím")
-            StaggeredItem(index = 4) {
+            StaggeredItem(index = 6) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         if (facts.isEmpty()) {
@@ -178,7 +275,14 @@ fun DashboardScreen(
                             )
                         } else {
                             facts.take(6).forEachIndexed { index, fact ->
-                                FactRow(fact)
+                                FactRow(
+                                    fact = fact,
+                                    onEdit = {
+                                        editFact = fact
+                                        editFactText = fact.content
+                                    },
+                                    onDelete = { viewModel.deleteFact(fact.id) }
+                                )
                                 if (index < minOf(5, facts.size - 1)) Spacer(Modifier.height(8.dp))
                             }
                         }
@@ -187,7 +291,7 @@ fun DashboardScreen(
             }
 
             SectionHeader("Poslední tréninky")
-            StaggeredItem(index = 5) {
+            StaggeredItem(index = 7) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         if (recentWorkouts.isEmpty()) {
@@ -225,6 +329,35 @@ fun DashboardScreen(
 
             Spacer(Modifier.height(8.dp))
         }
+    }
+
+    editFact?.let { fact ->
+        AlertDialog(
+            onDismissRequest = { editFact = null },
+            title = { Text("Upravit poznámku") },
+            text = {
+                androidx.compose.material3.OutlinedTextField(
+                    value = editFactText,
+                    onValueChange = { editFactText = it },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.updateFact(fact.id, editFactText)
+                    editFact = null
+                }) { Text("Uložit") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        viewModel.deleteFact(fact.id)
+                        editFact = null
+                    }) { Text("Smazat", color = MaterialTheme.colorScheme.error) }
+                    TextButton(onClick = { editFact = null }) { Text("Zrušit") }
+                }
+            }
+        )
     }
 }
 
@@ -353,31 +486,85 @@ private fun WeeklySummaryCard(onClick: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun FactRow(fact: FactEntity) {
+private fun FactRow(
+    fact: FactEntity,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
     val color = factCategoryColor(fact.category)
     Row(verticalAlignment = Alignment.CenterVertically) {
-        SurfaceChip(
-            text = FactEntity.categoryLabel(fact.category),
-            color = color
-        )
+        Box {
+            SurfaceChip(
+                text = FactEntity.categoryLabel(fact.category),
+                color = color,
+                onClick = { menuExpanded = true }
+            )
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(text = { Text("Upravit") }, onClick = {
+                    menuExpanded = false
+                    onEdit()
+                })
+                DropdownMenuItem(text = { Text("Smazat") }, onClick = {
+                    menuExpanded = false
+                    onDelete()
+                })
+            }
+        }
         Spacer(Modifier.width(10.dp))
         Text(fact.content, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Normal)
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun SurfaceChip(text: String, color: Color) {
+private fun SurfaceChip(text: String, color: Color, onClick: (() -> Unit)? = null) {
+    val clickableModifier = if (onClick != null) {
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onClick)
+    } else {
+        Modifier
+    }
     Box(
         Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(color.copy(alpha = 0.16f))
+            .then(clickableModifier)
             .padding(horizontal = 8.dp, vertical = 3.dp)
     ) {
         Text(
             text,
             style = MaterialTheme.typography.labelSmall,
             color = color
+        )
+    }
+}
+
+@Composable
+private fun BadgeChip(badge: Badge) {
+    val accent = if (badge.earned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
+    Row(
+        Modifier
+            .clip(RoundedCornerShape(50))
+            .background(accent.copy(alpha = if (badge.earned) 0.18f else 0.5f))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (badge.earned) Icons.Filled.AutoAwesome else Icons.Filled.Lock,
+            contentDescription = null,
+            tint = accent,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(Modifier.width(6.dp))
+        Text(
+            badge.label,
+            style = MaterialTheme.typography.labelLarge,
+            color = if (badge.earned) accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
     }
 }

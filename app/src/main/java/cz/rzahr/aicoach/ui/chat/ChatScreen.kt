@@ -36,6 +36,7 @@ import androidx.compose.material.icons.filled.AddPhotoAlternate
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -65,6 +66,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -80,6 +82,7 @@ import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
 import cz.rzahr.aicoach.ui.theme.TextPrimaryDark
 import cz.rzahr.aicoach.util.formatTime
 import cz.rzahr.aicoach.util.toLocalDate
+import kotlinx.coroutines.launch
 import androidx.core.content.FileProvider
 import java.io.File
 import java.time.LocalDate
@@ -133,6 +136,25 @@ fun ChatScreen(
         pendingCaptureFile = null
         if (success && file != null && file.exists()) {
             viewModel.attachCapturedImage(file)
+        }
+    }
+
+    val snackbarScope = rememberCoroutineScope()
+    val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        val spoken = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
+        if (!spoken.isNullOrBlank()) {
+            input = (input + " " + spoken).trim()
+        }
+    }
+    fun startVoiceInput() {
+        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ")
+        }
+        try {
+            speechLauncher.launch(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            snackbarScope.launch { snackbarHostState.showSnackbar("Hlasový vstup není na tomto zařízení dostupný.") }
         }
     }
 
@@ -269,6 +291,7 @@ fun ChatScreen(
                     )
                     takePicture.launch(uri)
                 },
+                onMicClick = { startVoiceInput() },
                 onStopClick = viewModel::stopGeneration,
                 onSend = {
                     viewModel.send(input)
@@ -608,6 +631,7 @@ private fun InputRow(
     enabled: Boolean,
     onAttachClick: () -> Unit,
     onCameraClick: () -> Unit,
+    onMicClick: () -> Unit,
     onStopClick: () -> Unit,
     onSend: () -> Unit
 ) {
@@ -622,6 +646,13 @@ private fun InputRow(
             Modifier.padding(start = 4.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
             verticalAlignment = Alignment.Bottom
         ) {
+            IconButton(onClick = onMicClick, enabled = enabled && !sending) {
+                Icon(
+                    Icons.Filled.Mic,
+                    contentDescription = "Diktovat",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
             IconButton(onClick = onCameraClick, enabled = enabled && !sending) {
                 Icon(
                     Icons.Filled.PhotoCamera,

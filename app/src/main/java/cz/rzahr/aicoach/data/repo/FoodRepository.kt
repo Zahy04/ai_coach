@@ -21,6 +21,15 @@ class FoodRepository @Inject constructor(
 
     suspend fun since(timestamp: Long): List<FoodEntryEntity> = dao.since(timestamp)
 
+    suspend fun update(
+        id: Long,
+        name: String,
+        calories: Int?,
+        proteinG: Double?,
+        carbsG: Double?,
+        fatG: Double?
+    ) = dao.update(id, name, calories, proteinG, carbsG, fatG)
+
     suspend fun add(
         name: String,
         calories: Int? = null,

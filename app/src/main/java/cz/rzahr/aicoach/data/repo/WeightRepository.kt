@@ -19,5 +19,8 @@ class WeightRepository @Inject constructor(
     suspend fun add(weightKg: Double, note: String? = null, timestamp: Long = System.currentTimeMillis()): Long =
         dao.insert(WeightEntryEntity(weightKg = weightKg, timestamp = timestamp, note = note?.takeIf { it.isNotBlank() }))
 
+    suspend fun update(id: Long, weightKg: Double, note: String?) =
+        dao.update(id, weightKg, note?.takeIf { it.isNotBlank() })
+
     suspend fun delete(id: Long) = dao.deleteById(id)
 }
