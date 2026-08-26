@@ -1,5 +1,6 @@
 package cz.rzahr.aicoach.ui.settings
 
+import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +25,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,6 +51,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
+import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.ui.components.SectionHeader
@@ -82,6 +87,7 @@ fun SettingsScreen(
     var keyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     var showIssueDialog by remember { mutableStateOf(false) }
+    var currentLangTag by rememberSaveable { mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { java.util.Locale.getDefault().language }) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
@@ -107,10 +113,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Nastavení") },
+                title = { Text(stringResource(R.string.settings_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )
@@ -125,10 +131,10 @@ fun SettingsScreen(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            SectionHeader("Trenér")
+            SectionHeader(stringResource(R.string.settings_section_coach))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Gemini API", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_gemini_api), style = MaterialTheme.typography.titleMedium)
                     Text(
                         if (apiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
                         style = MaterialTheme.typography.bodySmall,
@@ -137,8 +143,8 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = newKeyInput,
                         onValueChange = { newKeyInput = it },
-                        label = { Text("Nový API klíč") },
-                        placeholder = { Text("Nech prázdné pro ponechání") },
+                        label = { Text(stringResource(R.string.settings_new_api_key)) },
+                        placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
                         singleLine = true,
                         visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -146,7 +152,7 @@ fun SettingsScreen(
                             IconButton(onClick = { keyVisible = !keyVisible }) {
                                 Icon(
                                     if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                                    contentDescription = "Zobrazit klíč"
+                                    contentDescription = stringResource(R.string.settings_show_key)
                                 )
                             }
                         },
@@ -155,7 +161,7 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = modelInput ?: "",
                         onValueChange = { modelInput = it },
-                        label = { Text("Model") },
+                        label = { Text(stringResource(R.string.settings_model)) },
                         singleLine = true,
                         modifier = Modifier.fillMaxWidth()
                     )
@@ -168,10 +174,14 @@ fun SettingsScreen(
                                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(Modifier.width(8.dp))
                             }
-                            Text(if (availableModels.isEmpty()) "Načíst modely" else "Obnovit modely")
+                            Text(if (availableModels.isEmpty()) stringResource(R.string.settings_load_models) else stringResource(R.string.settings_refresh_models))
                         }
                         Text(
-                            if (availableModels.isEmpty()) "Nebo zadej ID ručně" else "Dostupných: ${availableModels.size}",
+                            if (availableModels.isEmpty()) {
+                                stringResource(R.string.settings_models_manual_hint)
+                            } else {
+                                stringResource(R.string.settings_models_count, availableModels.size)
+                            },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -181,35 +191,34 @@ fun SettingsScreen(
                             onClick = { showModelDialog = true },
                             modifier = Modifier.fillMaxWidth()
                         ) {
-                            Text("Vybrat ze seznamu (${availableModels.size} modelů)")
+                            Text(stringResource(R.string.settings_pick_from_list, availableModels.size))
                         }
                     }
+                    val savedMsg = stringResource(R.string.settings_saved_key_and_model)
+                    val modelOnlyMsg = stringResource(R.string.settings_saved_model_only)
                     Button(
                         onClick = {
+                            val savedWithKey = newKeyInput.isNotBlank()
                             viewModel.save(modelInput.orEmpty(), newKeyInput.takeIf { it.isNotBlank() })
-                            scope.launch {
-                                snackbarHostState.showSnackbar(
-                                    if (newKeyInput.isNotBlank()) "Uloženo (klíč i model)." else "Model uložen. Klíč zůstal."
-                                )
-                            }
+                            scope.launch { snackbarHostState.showSnackbar(if (savedWithKey) savedMsg else modelOnlyMsg) }
                             newKeyInput = ""
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Uložit")
+                        Text(stringResource(R.string.settings_save))
                     }
                 }
             }
 
-            SectionHeader("Cíle")
+            SectionHeader(stringResource(R.string.settings_section_goals))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Denní cíle", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_section_goals), style = MaterialTheme.typography.titleMedium)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         OutlinedTextField(
                             value = calorieGoalInput ?: "",
                             onValueChange = { calorieGoalInput = it },
-                            label = { Text("Kalorie (kcal)") },
+                            label = { Text(stringResource(R.string.settings_goal_calories)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
@@ -217,7 +226,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = proteinGoalInput ?: "",
                             onValueChange = { proteinGoalInput = it },
-                            label = { Text("Bílkoviny (g)") },
+                            label = { Text(stringResource(R.string.settings_goal_protein)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
@@ -227,7 +236,7 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = waterGoalInput ?: "",
                             onValueChange = { waterGoalInput = it },
-                            label = { Text("Voda (ml)") },
+                            label = { Text(stringResource(R.string.settings_goal_water)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             modifier = Modifier.weight(1f)
@@ -235,12 +244,13 @@ fun SettingsScreen(
                         OutlinedTextField(
                             value = goalWeightInput ?: "",
                             onValueChange = { goalWeightInput = it },
-                            label = { Text("Cílová váha (kg)") },
+                            label = { Text(stringResource(R.string.settings_goal_weight)) },
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    val goalsSavedMsg = stringResource(R.string.settings_goals_saved)
                     Button(
                         onClick = {
                             viewModel.saveGoals(
@@ -249,16 +259,38 @@ fun SettingsScreen(
                             )
                             viewModel.saveWaterGoal((waterGoalInput ?: "").toIntOrNull() ?: 0)
                             viewModel.saveGoalWeight((goalWeightInput ?: "").replace(',', '.').toDoubleOrNull())
-                            scope.launch { snackbarHostState.showSnackbar("Cíle uloženy.") }
+                            scope.launch { snackbarHostState.showSnackbar(goalsSavedMsg) }
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
-                        Text("Uložit cíle")
+                        Text(stringResource(R.string.settings_save_goals))
                     }
                 }
             }
 
-            SectionHeader("Zpětná vazba")
+            SectionHeader(stringResource(R.string.settings_language))
+            Card(Modifier.fillMaxWidth()) {
+                Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = currentLangTag == "cs",
+                        onClick = {
+                            currentLangTag = "cs"
+                            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("cs"))
+                        },
+                        label = { Text(stringResource(R.string.language_cs)) }
+                    )
+                    FilterChip(
+                        selected = currentLangTag != "cs",
+                        onClick = {
+                            currentLangTag = "en"
+                            AppCompatDelegate.setApplicationLocales(LocaleListCompat.forLanguageTags("en"))
+                        },
+                        label = { Text(stringResource(R.string.language_en)) }
+                    )
+                }
+            }
+
+            SectionHeader(stringResource(R.string.settings_section_feedback))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(
@@ -269,8 +301,8 @@ fun SettingsScreen(
                     OutlinedTextField(
                         value = newPatInput,
                         onValueChange = { newPatInput = it },
-                        label = { Text("Nový GitHub token (PAT)") },
-                        placeholder = { Text("Nech prázdné pro ponechání") },
+                        label = { Text(stringResource(R.string.settings_new_github_token)) },
+                        placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
                         singleLine = true,
                         visualTransformation = if (patVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -282,27 +314,25 @@ fun SettingsScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val tokenSavedMsg = stringResource(R.string.settings_token_saved)
                         Button(onClick = {
                             viewModel.saveGithubPat(newPatInput.takeIf { it.isNotBlank() })
                             newPatInput = ""
-                            scope.launch { snackbarHostState.showSnackbar("Token uložen.") }
-                        }) { Text("Uložit token") }
+                            scope.launch { snackbarHostState.showSnackbar(tokenSavedMsg) }
+                        }) { Text(stringResource(R.string.settings_save_token)) }
                         OutlinedButton(onClick = { showIssueDialog = true }) {
-                            Text("Nahlásit problém")
+                            Text(stringResource(R.string.settings_report_issue))
                         }
                     }
                 }
             }
 
-            SectionHeader("Nápověda")
+            SectionHeader(stringResource(R.string.settings_help_section))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Jak získat API klíč", style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_howto_title), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "1. Jdi na aistudio.google.com a přihlas se Google účtem.\n" +
-                            "2. Vytvoř API klíč (Create API key).\n" +
-                            "3. Klíč vlož sem do pole API klíč.\n\n" +
-                            "Gemini má volný tier, který pro běžné použití chatu bohatě stačí.",
+                        stringResource(R.string.settings_howto_body),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }
@@ -316,38 +346,40 @@ fun SettingsScreen(
     if (showIssueDialog) {
         AlertDialog(
             onDismissRequest = { if (!issueSending) showIssueDialog = false },
-            title = { Text("Nahlásit problém") },
+            title = { Text(stringResource(R.string.settings_report_issue)) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = issueTitle,
                         onValueChange = { issueTitle = it },
-                        label = { Text("Název") },
+                        label = { Text(stringResource(R.string.issue_title_label)) },
                         singleLine = true
                     )
                     OutlinedTextField(
                         value = issueDescription,
                         onValueChange = { issueDescription = it },
-                        label = { Text("Popis — co se stalo?") },
+                        label = { Text(stringResource(R.string.issue_description_label)) },
                         minLines = 3,
                         maxLines = 8
                     )
                 }
             },
             confirmButton = {
+                val createdTpl = stringResource(R.string.issue_created, "%s")
+                val errTpl = stringResource(R.string.issue_error, "%s")
                 TextButton(
                     onClick = {
                         viewModel.sendIssue(issueTitle, issueDescription) { result ->
                             scope.launch {
                                 result.fold(
                                     onSuccess = { url ->
-                                        snackbarHostState.showSnackbar("Issue vytvořeno: $url")
+                                        snackbarHostState.showSnackbar(createdTpl.format(url))
                                         issueTitle = ""
                                         issueDescription = ""
                                         showIssueDialog = false
                                     },
                                     onFailure = { e ->
-                                        snackbarHostState.showSnackbar("Chyba: ${e.message}")
+                                        snackbarHostState.showSnackbar(errTpl.format(e.message ?: ""))
                                     }
                                 )
                             }
@@ -355,11 +387,11 @@ fun SettingsScreen(
                     },
                     enabled = !issueSending && issueTitle.isNotBlank()
                 ) {
-                    Text(if (issueSending) "Odesílám…" else "Vytvořit issue")
+                    Text(stringResource(if (issueSending) R.string.issue_sending else R.string.issue_create))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showIssueDialog = false }) { Text("Zrušit") }
+                TextButton(onClick = { showIssueDialog = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
@@ -367,7 +399,7 @@ fun SettingsScreen(
     if (showModelDialog) {
         AlertDialog(
             onDismissRequest = { showModelDialog = false },
-            title = { Text("Vyber model") },
+            title = { Text(stringResource(R.string.settings_pick_model_title)) },
             text = {
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 420.dp),
@@ -395,7 +427,7 @@ fun SettingsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { showModelDialog = false }) { Text("Zavřít") }
+                TextButton(onClick = { showModelDialog = false }) { Text(stringResource(R.string.close)) }
             }
         )
     }

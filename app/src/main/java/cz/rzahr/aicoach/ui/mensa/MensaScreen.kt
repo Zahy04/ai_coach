@@ -43,6 +43,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.mensa.MensaScraper
 import cz.rzahr.aicoach.ui.components.EmptyState
 import cz.rzahr.aicoach.ui.theme.extendedColors
@@ -69,15 +71,15 @@ fun MensaScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Menza ČVUT") },
+                title = { Text(stringResource(R.string.mensa_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 },
                 actions = {
                     IconButton(onClick = { viewModel.refresh(force = true) }, enabled = !loading) {
-                        Icon(Icons.Filled.Refresh, contentDescription = "Obnovit")
+                        Icon(Icons.Filled.Refresh, contentDescription = stringResource(R.string.refresh))
                     }
                 }
             )
@@ -98,12 +100,12 @@ fun MensaScreen(
                 FilterChip(
                     selected = selectedSystem == MensaMealEntity.SYSTEM_STUDENTSKEJ_DUM,
                     onClick = { viewModel.selectSystem(MensaMealEntity.SYSTEM_STUDENTSKEJ_DUM) },
-                    label = { Text("Studentský dům") }
+                    label = { Text(stringResource(R.string.mensa_system_sd)) }
                 )
                 FilterChip(
                     selected = selectedSystem == MensaMealEntity.SYSTEM_TECHNICKA,
                     onClick = { viewModel.selectSystem(MensaMealEntity.SYSTEM_TECHNICKA) },
-                    label = { Text("Technická menza") }
+                    label = { Text(stringResource(R.string.mensa_system_tech)) }
                 )
             }
 
@@ -113,7 +115,7 @@ fun MensaScreen(
                         CircularProgressIndicator()
                         Spacer(Modifier.height(8.dp))
                         Text(
-                            "Načítám menu a odhaduji kalorie…",
+                            stringResource(R.string.mensa_loading),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -143,7 +145,7 @@ fun MensaScreen(
                         .padding(horizontal = 16.dp, vertical = 4.dp)
                 ) {
                     Text(
-                        "Odhady kalorií: $message Zkus tlačítkem ↻ obnovit.",
+                        stringResource(R.string.mensa_estimate_prefix, "$message "),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(12.dp)
@@ -155,15 +157,15 @@ fun MensaScreen(
                 viewModel.isWeekend -> {
                     EmptyState(
                         icon = Icons.Filled.Refresh,
-                        title = "Víkend",
-                        description = "Menza o víkendu nevaří. Mrkni sem v pondělí."
+                        title = stringResource(R.string.mensa_weekend_title),
+                        description = stringResource(R.string.mensa_weekend_desc)
                     )
                 }
                 meals.isEmpty() && !loading -> {
                     EmptyState(
                         icon = Icons.Filled.Refresh,
-                        title = "Žádná jídla pro dnešek",
-                        description = "Menu se nepodařilo načíst, nebo je menza dnes zavřená. Zkus obnovit."
+                        title = stringResource(R.string.mensa_no_meals_title),
+                        description = stringResource(R.string.mensa_no_meals_desc)
                     )
                 }
                 else -> {
@@ -251,7 +253,7 @@ private fun MensaMealRow(
                 onClick = onLog,
                 enabled = !logged
             ) {
-                Text(if (logged) "Zapsáno" else "Zapsat")
+                Text(stringResource(if (logged) R.string.mensa_logged_button else R.string.mensa_log_button))
             }
         }
     }

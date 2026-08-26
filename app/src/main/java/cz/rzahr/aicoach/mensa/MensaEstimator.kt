@@ -1,6 +1,7 @@
 package cz.rzahr.aicoach.mensa
 
 import android.util.Log
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.llm.ApiError
@@ -50,10 +51,20 @@ private data class MensaEstimateResponse(
     val meals: List<MensaEstimateItem> = emptyList()
 )
 
+data class CoreMessages(
+    val emptyReply: String = "Model returned no text",
+    val reasonFmt: String = " (reason: %1\$s)",
+    val invalidFormat: String = "Invalid response format: %1\$s",
+    val networkError: String = "Network error: %1\$s",
+    val http: String = "HTTP %1\$d",
+    val overloaded: String = "Model is overloaded."
+)
+
 class MensaEstimationException(message: String) : Exception(message)
 
 @Singleton
 class MensaEstimator @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val http: OkHttpClient,
     private val json: Json,
     private val settings: SettingsRepository
@@ -72,26 +83,40 @@ class MensaEstimator @Inject constructor(
             val apiKey = settings.apiKey.first()
             if (apiKey.isBlank()) {
                 Log.e(TAG, "estimate: API klíč je PRÁZDNÝ — zadej ho v Nastavení")
-                throw MensaEstimationException("API klíč je prázdný. Zkontroluj ho v Nastavení.")
+                throw MensaEstimationException(context.getString(R.string.gemini_key_blank))
             }
 
             val model = settings.model.first()
             Log.d(TAG, "estimate: systemId=$systemId, jídel=${meals.size}, model=$model, patient=$patient")
             val prompt = MensaEstimatorCore.buildPrompt(meals)
-            val responseText = MensaEstimatorCore.generateWithRetry(
-                http, json, apiKey, model, prompt,
-                maxRetries = if (patient) 6 else 3,
-                baseDelayMs = if (patient) 3000L else 1500L
-            ) ?: run {
+            val responseText = try {
+                MensaEstimatorCore.generateWithRetry(
+                    http, json, apiKey, model, prompt,
+                    maxRetries = if (patient) 6 else 3,
+                    baseDelayMs = if (patient) 3000L else 1500L,
+                    msgs = localizedMessages()
+                )
+            } catch (_: IOException) {
+                throw MensaEstimationException(context.getString(R.string.err_network))
+            } ?: run {
                 Log.e(TAG, "estimate: vyčerpané retrye (429/503)")
-                throw MensaEstimationException("Model se neozval ani po několika pokusech (přetížení?). Zkus to za chvíli.")
+                throw MensaEstimationException(context.getString(R.string.mensa_exhausted))
             }
 
             Log.d(TAG, "estimate: odpověď (${responseText.length} znaků): ${responseText.take(300)}")
-            val result = MensaEstimatorCore.parseEstimates(json, responseText, meals.size)
+            val result = MensaEstimatorCore.parseEstimates(json, responseText, meals.size, localizedMessages())
             Log.d(TAG, "estimate: naparsováno ${result?.size ?: 0} odhadů")
             result
         }
+
+    private fun localizedMessages() = CoreMessages(
+        emptyReply = context.getString(R.string.mensa_empty_text),
+        reasonFmt = context.getString(R.string.mensa_reason_suffix),
+        invalidFormat = context.getString(R.string.mensa_invalid_format),
+        networkError = context.getString(R.string.err_network),
+        http = context.getString(R.string.gemini_http),
+        overloaded = context.getString(R.string.mensa_overloaded)
+    )
 
     companion object {
         private const val TAG = "MensaEstimator"
@@ -138,7 +163,8 @@ object MensaEstimatorCore {
         prompt: String,
         baseUrl: String = BASE_URL,
         maxRetries: Int = 6,
-        baseDelayMs: Long = 3000L
+        baseDelayMs: Long = 3000L,
+        msgs: CoreMessages = CoreMessages()
     ): String? {
         var lastError: Exception? = null
         repeat(maxRetries) { attempt ->
@@ -171,19 +197,19 @@ object MensaEstimatorCore {
                     val reason = envelope?.candidates?.firstOrNull()?.finishReason
                         ?.let { " (důvod: $it)" }
                         .orEmpty()
-                    throw MensaEstimationException("Model nevrátil text$reason.")
+                    throw MensaEstimationException(msgs.emptyReply + String.format(msgs.reasonFmt, reason))
                 }
                 return inner
             }
 
             val retryable = response.code == 429 || response.code == 503
             lastError = if (retryable) {
-                MensaEstimationException("Model je přetížen.")
+                MensaEstimationException(msgs.overloaded)
             } else {
                 runCatching { json.decodeFromString(ApiError.serializer(), responseText).error?.message }
                     .getOrNull()
                     ?.let { MensaEstimationException(it) }
-                    ?: MensaEstimationException("HTTP ${response.code}")
+                    ?: MensaEstimationException(String.format(msgs.http, response.code))
             }
 
             if (!retryable) throw lastError!!
@@ -200,7 +226,7 @@ object MensaEstimatorCore {
         return null
     }
 
-    fun parseEstimates(json: Json, responseText: String, mealCount: Int): List<MensaEstimation>? {
+    fun parseEstimates(json: Json, responseText: String, mealCount: Int, msgs: CoreMessages = CoreMessages()): List<MensaEstimation>? {
         // očistíme případné markdown ohraničení
         val cleaned = responseText.trim()
             .removePrefix("```json").removePrefix("```")
@@ -217,7 +243,7 @@ object MensaEstimatorCore {
                     cleaned
                 )
             } catch (_: Exception) {
-                throw MensaEstimationException("Neplatný formát odpovědi: ${cleaned.take(120)}")
+                throw MensaEstimationException(String.format(msgs.invalidFormat, cleaned.take(120)))
             }
         }
 

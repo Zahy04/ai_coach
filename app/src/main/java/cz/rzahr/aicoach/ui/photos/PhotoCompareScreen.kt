@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.util.formatDate
 import java.io.File
 
@@ -58,10 +60,10 @@ fun PhotoCompareScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Před / po") },
+                title = { Text(stringResource(R.string.compare_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.back))
                     }
                 }
             )
@@ -78,12 +80,12 @@ fun PhotoCompareScreen(
             if (before != null && after != null) {
                 Row(Modifier.fillMaxWidth()) {
                     Text(
-                        "Před · ${before.timestamp.formatDate()}",
+                        stringResource(R.string.compare_before, before.timestamp.formatDate()),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        "Po · ${after.timestamp.formatDate()}",
+                        stringResource(R.string.compare_after, after.timestamp.formatDate()),
                         style = MaterialTheme.typography.titleSmall,
                         modifier = Modifier.weight(1f),
                         color = MaterialTheme.colorScheme.primary
@@ -94,13 +96,13 @@ fun PhotoCompareScreen(
                     afterFile = File(after.filePath)
                 )
                 Text(
-                    "Táhni prstem doleva a doprava.",
+                    stringResource(R.string.compare_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp)
                 )
             } else {
-                Text("Fotky se nepodařilo načíst.", style = MaterialTheme.typography.bodyLarge)
+                Text(stringResource(R.string.mensa_no_meals_desc), style = MaterialTheme.typography.bodyLarge)
             }
         }
     }
@@ -121,7 +123,7 @@ private fun CompareSlider(beforeFile: File, afterFile: File) {
 
         AsyncImage(
             model = afterFile,
-            contentDescription = "Po",
+            contentDescription = stringResource(R.string.compare_after_cd),
             contentScale = ContentScale.Crop,
             modifier = Modifier.fillMaxSize()
         )
@@ -132,7 +134,7 @@ private fun CompareSlider(beforeFile: File, afterFile: File) {
         ) {
             AsyncImage(
                 model = beforeFile,
-                contentDescription = "Před",
+                contentDescription = stringResource(R.string.compare_before_cd),
                 contentScale = ContentScale.Crop,
                 modifier = Modifier.width(fullWidth)
             )

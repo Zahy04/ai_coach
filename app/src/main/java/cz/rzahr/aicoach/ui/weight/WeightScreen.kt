@@ -40,6 +40,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.WeightEntryEntity
 import cz.rzahr.aicoach.util.formatDateTime
 import java.util.Locale
@@ -65,10 +67,10 @@ fun WeightScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Váha") },
+                title = { Text(stringResource(R.string.weight_title)) },
                 actions = {
                     IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Přidat váhu")
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.weight_add))
                     }
                 }
             )
@@ -84,23 +86,23 @@ fun WeightScreen(
             item {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
-                        Text("Vývoj váhy", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.weight_chart_title), style = MaterialTheme.typography.titleMedium)
                         Spacer(Modifier.height(8.dp))
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(
                                 selected = periodDays == 30,
                                 onClick = { periodDays = 30 },
-                                label = { Text("30 dní") }
+                                label = { Text(stringResource(R.string.period_30_days)) }
                             )
                             FilterChip(
                                 selected = periodDays == 90,
                                 onClick = { periodDays = 90 },
-                                label = { Text("90 dní") }
+                                label = { Text(stringResource(R.string.period_90_days)) }
                             )
                             FilterChip(
                                 selected = periodDays == null,
                                 onClick = { periodDays = null },
-                                label = { Text("Vše") }
+                                label = { Text(stringResource(R.string.period_all)) }
                             )
                         }
                         Spacer(Modifier.height(8.dp))
@@ -162,7 +164,7 @@ private fun WeightRow(
         ) {
             Column(Modifier.weight(1f)) {
                 Text(
-                    String.format(Locale.forLanguageTag("cs"), "%.1f kg", entry.weightKg),
+                    stringResource(R.string.kg_value, entry.weightKg),
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
@@ -175,7 +177,7 @@ private fun WeightRow(
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Filled.Delete, contentDescription = "Smazat")
+                Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete))
             }
         }
     }
@@ -196,20 +198,20 @@ private fun EditWeightDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Upravit záznam") },
+        title = { Text(stringResource(R.string.weight_dialog_edit_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = weightText,
                     onValueChange = { weightText = it },
-                    label = { Text("Váha (kg)") },
+                    label = { Text(stringResource(R.string.weight_field_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 OutlinedTextField(
                     value = noteText,
                     onValueChange = { noteText = it },
-                    label = { Text("Poznámka (nepovinné)") },
+                    label = { Text(stringResource(R.string.note_field_label)) },
                     singleLine = true
                 )
             }
@@ -218,14 +220,14 @@ private fun EditWeightDialog(
             TextButton(
                 onClick = { onSave(parsed!!, noteText.takeIf { it.isNotBlank() }) },
                 enabled = parsed != null && parsed in 20.0..400.0
-            ) { Text("Uložit") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             Row {
                 TextButton(onClick = onDelete) {
-                    Text("Smazat", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
-                TextButton(onClick = onDismiss) { Text("Zrušit") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         }
     )
@@ -242,20 +244,20 @@ private fun AddWeightDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Zaznamenat váhu") },
+        title = { Text(stringResource(R.string.weight_dialog_add_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = weightText,
                     onValueChange = { weightText = it },
-                    label = { Text("Váha (kg)") },
+                    label = { Text(stringResource(R.string.weight_field_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal)
                 )
                 OutlinedTextField(
                     value = noteText,
                     onValueChange = { noteText = it },
-                    label = { Text("Poznámka (nepovinné)") },
+                    label = { Text(stringResource(R.string.note_field_label)) },
                     singleLine = true
                 )
             }
@@ -264,10 +266,10 @@ private fun AddWeightDialog(
             TextButton(
                 onClick = { onConfirm(parsed!!, noteText.takeIf { it.isNotBlank() }) },
                 enabled = parsed != null && parsed in 20.0..400.0
-            ) { Text("Uložit") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Zrušit") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

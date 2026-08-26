@@ -60,6 +60,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.FactEntity
 import cz.rzahr.aicoach.ui.components.GlowProgressRing
 import cz.rzahr.aicoach.ui.components.MiniBarChart
@@ -107,7 +109,7 @@ fun DashboardScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("AI Coach") },
+                title = { Text(stringResource(R.string.dashboard_title)) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(Icons.Filled.Settings, contentDescription = "Nastavení")
@@ -140,7 +142,7 @@ fun DashboardScreen(
                     StatTile(
                         icon = Icons.Filled.MonitorWeight,
                         iconContainer = MaterialTheme.colorScheme.primary,
-                        title = "Váha",
+                        title = stringResource(R.string.stat_weight),
                         value = latestWeight?.let {
                             String.format(Locale.forLanguageTag("cs"), "%.1f kg", it.weightKg)
                         } ?: "—",
@@ -149,13 +151,16 @@ fun DashboardScreen(
                             val current = latestWeight?.weightKg
                             if (goal != null && current != null) {
                                 val remaining = kotlin.math.abs(current - goal)
-                                append("cíl ${String.format(Locale.forLanguageTag("cs"), "%.1f", goal)} kg · zbývá ")
-                                append(String.format(Locale.forLanguageTag("cs"), "%.1f", remaining))
-                                append(" kg")
+                                append(
+                                    stringResource(
+                                        R.string.stat_weight_goal_left,
+                                        goal, remaining
+                                    )
+                                )
                             } else {
                                 weightDelta?.let { delta ->
                                     val sign = if (delta > 0) "+" else ""
-                                    append("$sign")
+                                    append(sign)
                                     append(String.format(Locale.forLanguageTag("cs"), "%.1f", delta))
                                     append(" kg")
                                 }
@@ -169,7 +174,7 @@ fun DashboardScreen(
                         iconContainer = extendedColors().protein,
                         title = "Fotky",
                         value = "$photoCount",
-                        subtitle = if (photoCount == 1) "fotka" else if (photoCount in 2..4) "fotky" else "fotek",
+                        subtitle = stringResource(R.string.photos_many),
                         modifier = Modifier.weight(1f),
                         onClick = { onOpenTab(Routes.PHOTOS) }
                     )
@@ -181,17 +186,17 @@ fun DashboardScreen(
                     StatTile(
                         icon = Icons.Filled.FitnessCenter,
                         iconContainer = extendedColors().calories,
-                        title = "Tréninky",
+                        title = stringResource(R.string.stat_workouts),
                         value = "$workoutsTotal",
-                        subtitle = "celkem záznamů",
+                        subtitle = stringResource(R.string.workouts_total_subtitle),
                         modifier = Modifier.weight(1f)
                     )
                     StatTile(
                         icon = Icons.Filled.Lightbulb,
                         iconContainer = extendedColors().success,
-                        title = "Poznámky",
+                        title = stringResource(R.string.stat_notes),
                         value = "${facts.size}",
-                        subtitle = "co o tobě vím",
+                        subtitle = stringResource(R.string.notes_subtitle),
                         modifier = Modifier.weight(1f)
                     )
                 }
@@ -250,7 +255,7 @@ fun DashboardScreen(
                 }
             }
 
-            SectionHeader("Odznaky")
+            SectionHeader(stringResource(R.string.section_badges))
             StaggeredItem(index = 4) {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     items(badges) { badge ->
@@ -263,13 +268,13 @@ fun DashboardScreen(
                 WeeklySummaryCard(onClick = onWeeklySummary)
             }
 
-            SectionHeader("Co o tobě vím")
+            SectionHeader(stringResource(R.string.facts_section))
             StaggeredItem(index = 6) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         if (facts.isEmpty()) {
                             Text(
-                                "Řekni mi v chatu, co máš rád, jaké máš cíle nebo jak běžně jíš.",
+                                stringResource(R.string.facts_empty_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -290,13 +295,13 @@ fun DashboardScreen(
                 }
             }
 
-            SectionHeader("Poslední tréninky")
+            SectionHeader(stringResource(R.string.workouts_section))
             StaggeredItem(index = 7) {
                 Card(Modifier.fillMaxWidth()) {
                     Column(Modifier.padding(16.dp)) {
                         if (recentWorkouts.isEmpty()) {
                             Text(
-                                "Zatím žádné záznamy. Napiš mi v chatu, co jsi cvičil.",
+                                stringResource(R.string.workouts_empty_hint),
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -334,7 +339,7 @@ fun DashboardScreen(
     editFact?.let { fact ->
         AlertDialog(
             onDismissRequest = { editFact = null },
-            title = { Text("Upravit poznámku") },
+            title = { Text(stringResource(R.string.edit)) },
             text = {
                 androidx.compose.material3.OutlinedTextField(
                     value = editFactText,
@@ -346,7 +351,7 @@ fun DashboardScreen(
                 TextButton(onClick = {
                     viewModel.updateFact(fact.id, editFactText)
                     editFact = null
-                }) { Text("Uložit") }
+                }) { Text(stringResource(R.string.save)) }
             },
             dismissButton = {
                 Row {
@@ -354,7 +359,7 @@ fun DashboardScreen(
                         viewModel.deleteFact(fact.id)
                         editFact = null
                     }) { Text("Smazat", color = MaterialTheme.colorScheme.error) }
-                    TextButton(onClick = { editFact = null }) { Text("Zrušit") }
+                    TextButton(onClick = { editFact = null }) { Text(stringResource(R.string.cancel)) }
                 }
             }
         )
@@ -404,7 +409,7 @@ private fun HeroCard(
                 )
             }
             Text(
-                "Dnešní přehled",
+                stringResource(R.string.dashboard_today_overview),
                 style = MaterialTheme.typography.headlineMedium,
                 color = Color.White
             )
@@ -416,19 +421,19 @@ private fun HeroCard(
                 GlowProgressRing(
                     progress = if (calorieGoal > 0) calories.toFloat() / calorieGoal else 0f,
                     value = "$animatedCalories",
-                    label = "/ $calorieGoal kcal",
+                    label = stringResource(R.string.ring_kcal_goal, calorieGoal),
                     ringColor = ext.calories
                 )
                 GlowProgressRing(
                     progress = if (proteinGoal > 0) protein.toFloat() / proteinGoal else 0f,
                     value = "$animatedProtein g",
-                    label = "/ $proteinGoal bílkovin",
+                    label = stringResource(R.string.ring_protein_goal, proteinGoal),
                     ringColor = ext.protein
                 )
             }
             Spacer(Modifier.height(18.dp))
             Text(
-                "Kalorie · posledních 7 dní",
+                stringResource(R.string.dashboard_calories_week_label),
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.7f)
             )
@@ -470,9 +475,9 @@ private fun WeeklySummaryCard(onClick: () -> Unit) {
             TonalIcon(Icons.Filled.AutoAwesome)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text("Týdenní shrnutí", style = MaterialTheme.typography.titleMedium)
+                Text(stringResource(R.string.weekly_summary_title), style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "Nech trenéra vyhodnotit tvůj týden",
+                    stringResource(R.string.weekly_summary_subtitle),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -498,7 +503,7 @@ private fun FactRow(
     Row(verticalAlignment = Alignment.CenterVertically) {
         Box {
             SurfaceChip(
-                text = FactEntity.categoryLabel(fact.category),
+                text = factCategoryLabel(fact.category),
                 color = color,
                 onClick = { menuExpanded = true }
             )
@@ -506,11 +511,11 @@ private fun FactRow(
                 expanded = menuExpanded,
                 onDismissRequest = { menuExpanded = false }
             ) {
-                DropdownMenuItem(text = { Text("Upravit") }, onClick = {
+                DropdownMenuItem(text = { Text(stringResource(R.string.edit)) }, onClick = {
                     menuExpanded = false
                     onEdit()
                 })
-                DropdownMenuItem(text = { Text("Smazat") }, onClick = {
+                DropdownMenuItem(text = { Text(stringResource(R.string.delete)) }, onClick = {
                     menuExpanded = false
                     onDelete()
                 })
@@ -545,6 +550,17 @@ private fun SurfaceChip(text: String, color: Color, onClick: (() -> Unit)? = nul
 }
 
 @Composable
+private fun badgeLabel(id: String): String = when (id) {
+    Badge.ID_STREAK_3 -> stringResource(R.string.badge_streak_3)
+    Badge.ID_STREAK_7 -> stringResource(R.string.badge_streak_7)
+    Badge.ID_STREAK_30 -> stringResource(R.string.badge_streak_30)
+    Badge.ID_WEIGHINS_10 -> stringResource(R.string.badge_weighins_10)
+    Badge.ID_FOODS_50 -> stringResource(R.string.badge_foods_50)
+    Badge.ID_PHOTOS_20 -> stringResource(R.string.badge_photos_20)
+    else -> id
+}
+
+@Composable
 private fun BadgeChip(badge: Badge) {
     val accent = if (badge.earned) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant
     Row(
@@ -562,11 +578,22 @@ private fun BadgeChip(badge: Badge) {
         )
         Spacer(Modifier.width(6.dp))
         Text(
-            badge.label,
+            badgeLabel(badge.id),
             style = MaterialTheme.typography.labelLarge,
             color = if (badge.earned) accent else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
         )
     }
+}
+
+@Composable
+private fun factCategoryLabel(category: String): String = when (category) {
+    FactEntity.CATEGORY_PREFERENCE -> stringResource(R.string.fact_preference)
+    FactEntity.CATEGORY_DISLIKE -> stringResource(R.string.fact_dislike)
+    FactEntity.CATEGORY_DIET -> stringResource(R.string.fact_diet)
+    FactEntity.CATEGORY_GOAL -> stringResource(R.string.fact_goal)
+    FactEntity.CATEGORY_HABIT -> stringResource(R.string.fact_habit)
+    FactEntity.CATEGORY_HEALTH -> stringResource(R.string.fact_health)
+    else -> stringResource(R.string.fact_other)
 }
 
 @Composable

@@ -1,3 +1,267 @@
+<?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">AI Coach</string>
+
+    <!-- Navigation -->
+    <string name="tab_dashboard">Overview</string>
+    <string name="tab_chat">Chat</string>
+    <string name="tab_weight">Weight</string>
+    <string name="tab_food">Food</string>
+    <string name="tab_photos">Photos</string>
+    <string name="settings_title">Settings</string>
+
+    <!-- Common -->
+    <string name="day_today">Today</string>
+    <string name="day_yesterday">Yesterday</string>
+    <string name="back">Back</string>
+    <string name="delete">Delete</string>
+    <string name="cancel">Cancel</string>
+    <string name="save">Save</string>
+    <string name="close">Close</string>
+    <string name="retry">Try again</string>
+    <string name="refresh">Refresh</string>
+    <string name="edit">Edit</string>
+    <string name="optional_hint">Optional</string>
+    <string name="keep_blank_to_keep">Leave blank to keep the current value</string>
+    <string name="key_stored">✓ Key is saved</string>
+    <string name="key_missing">⚠ Key is missing</string>
+    <string name="saved">Saved.</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">AI Coach</string>
+    <string name="dashboard_today_overview">Today\'s overview</string>
+    <string name="dashboard_calories_week_label">Calories · last 7 days</string>
+    <string name="stat_weight">Weight</string>
+    <string name="stat_weight_goal_left">goal %1$.1f kg · %2$.1f kg to go</string>
+    <string name="stat_photos">Photos</string>
+    <string name="photos_one">photo</string>
+    <string name="photos_few">photos</string>
+    <string name="photos_many">photos</string>
+    <string name="stat_workouts">Workouts</string>
+    <string name="workouts_total_subtitle">total records</string>
+    <string name="stat_notes">Notes</string>
+    <string name="notes_subtitle">what I know about you</string>
+    <string name="section_badges">Badges</string>
+    <string name="badge_streak_3">3-day streak</string>
+    <string name="badge_streak_7">7-day streak</string>
+    <string name="badge_streak_30">30-day streak</string>
+    <string name="badge_weighins_10">10 weigh-ins</string>
+    <string name="badge_foods_50">50 meals</string>
+    <string name="badge_photos_20">20 photos</string>
+    <string name="weekly_summary_title">Weekly summary</string>
+    <string name="weekly_summary_subtitle">Let the coach evaluate your week</string>
+    <string name="facts_section">What I know about you</string>
+    <string name="facts_empty_hint">Tell me in chat what you like, what your goals are or what you usually eat.</string>
+    <string name="facts_count">%1$d notes</string>
+    <string name="workouts_section">Recent workouts</string>
+    <string name="workouts_empty_hint">No records yet. Write in chat what you trained.</string>
+    <string name="protein_unit">%1$d g</string>
+    <string name="ring_protein_goal">/ %1$d protein</string>
+    <string name="ring_kcal_goal">/ %1$d kcal</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Coach chat</string>
+    <string name="chat_delete_history">Delete chat</string>
+    <string name="chat_clear_confirm_title">Delete chat history?</string>
+    <string name="chat_clear_confirm_text">Messages will be removed from the chat only. Saved data (weight, food, notes) stays.</string>
+    <string name="chat_missing_key_title">Missing Gemini API key</string>
+    <string name="chat_missing_key_body">Chat won\'t work without a key. Get one for free at aistudio.google.com.</string>
+    <string name="chat_open_settings">Open settings</string>
+    <string name="chat_empty_hint">Tell me what you ate today or how you trained.\nE.g. “I had oatmeal with banana for breakfast and I weigh 78 kg.”</string>
+    <string name="chat_typing">Coach is typing…</string>
+    <string name="chat_input_placeholder">Write a message…</string>
+    <string name="chat_send">Send</string>
+    <string name="chat_stop_generation">Stop generating</string>
+    <string name="chat_attach_photo">Attach photo</string>
+    <string name="chat_take_photo">Take photo</string>
+    <string name="chat_dictate">Dictate</string>
+    <string name="chat_voice_unavailable">Voice input is not available on this device.</string>
+    <string name="chat_pending_photo">Photo ready to send</string>
+    <string name="chat_remove_photo">Remove photo</string>
+    <string name="chat_copy">Copy</string>
+    <string name="chat_regenerate">Regenerate reply</string>
+    <string name="chat_change_model">Change model</string>
+    <string name="chat_models_loading">Loading models…</string>
+    <string name="chat_models_failed">Couldn\'t load models — try again</string>
+    <string name="error_generic">Unknown error.</string>
+
+    <!-- Weight -->
+    <string name="weight_title">Weight</string>
+    <string name="weight_add">Add weight</string>
+    <string name="weight_chart_title">Weight trend</string>
+    <string name="period_30_days">30 days</string>
+    <string name="period_90_days">90 days</string>
+    <string name="period_all">All</string>
+    <string name="legend_measurements">Measurements</string>
+    <string name="legend_trend">Trend</string>
+    <string name="legend_ma7">7-day average</string>
+    <string name="weight_empty_short">—</string>
+    <string name="weight_no_records">No weight records yet.</string>
+    <string name="weight_need_two">At least 2 measurements are needed for the chart.</string>
+    <string name="weight_dialog_add_title">Log weight</string>
+    <string name="weight_dialog_edit_title">Edit record</string>
+    <string name="weight_field_label">Weight (kg)</string>
+    <string name="note_field_label">Note (optional)</string>
+    <string name="kg_value">%1$.1f kg</string>
+    <string name="delta_from_last">%1$s%2$.1f kg</string>
+
+    <!-- Food -->
+    <string name="food_title">Food diary</string>
+    <string name="food_add">Add food</string>
+    <string name="food_empty_title">No meals yet</string>
+    <string name="food_empty_desc">Tell me in chat what you ate, or add food manually with the + button.</string>
+    <string name="records_one">%1$d record</string>
+    <string name="records_few">%1$d records</string>
+    <string name="records_many">%1$d records</string>
+    <string name="food_dialog_add_title">Add food</string>
+    <string name="food_dialog_edit_title">Edit food</string>
+    <string name="food_name_label">Food</string>
+    <string name="food_calories_label">Calories (kcal, optional)</string>
+    <string name="macro_protein_short">P %1$d g</string>
+    <string name="macro_carbs_short">C %1$d g</string>
+    <string name="macro_fat_short">F %1$d g</string>
+
+    <!-- Mensa -->
+    <string name="mensa_entry_title">CTU Canteen</string>
+    <string name="mensa_entry_subtitle">Today\'s lunches · fitness rating</string>
+    <string name="mensa_title">CTU Canteen</string>
+    <string name="mensa_system_sd">Studentský dům</string>
+    <string name="mensa_system_tech">Technická menza</string>
+    <string name="mensa_loading">Loading menu and estimating calories…</string>
+    <string name="mensa_scrape_failed">Couldn\'t load the menu from SUZ pages. Try refreshing later.</string>
+    <string name="mensa_estimate_prefix">Calorie estimates: %1$s Use the ↻ refresh button.</string>
+    <string name="mensa_overloaded">Model is overloaded. Waiting for it…</string>
+    <string name="mensa_exhausted">Model didn\'t respond after several attempts (overloaded?). Try again later.</string>
+    <string name="mensa_key_blank">API key is empty. Check it in Settings.</string>
+    <string name="mensa_invalid_format">Invalid response format: %1$s</string>
+    <string name="mensa_empty_text">Model returned no text</string>
+    <string name="mensa_reason_suffix">(reason: %1$s)</string>
+    <string name="mensa_weekend_title">Weekend</string>
+    <string name="mensa_weekend_desc">The canteen doesn\'t cook on weekends. Come back on Monday.</string>
+    <string name="mensa_no_meals_title">No meals today</string>
+    <string name="mensa_no_meals_desc">The menu couldn\'t be loaded, or the canteen is closed today. Try refreshing.</string>
+    <string name="mensa_log_button">Log</string>
+    <string name="mensa_logged_button">Logged</string>
+    <string name="mensa_logged_snackbar">Logged to diary: %1$s</string>
+    <string name="mensa_no_estimate">estimate not available</string>
+    <string name="kcal_range">≈ %1$d–%2$d kcal</string>
+
+    <!-- Photos -->
+    <string name="photos_title">Progress photos</string>
+    <string name="photos_take">Take photo</string>
+    <string name="photos_pick">From gallery</string>
+    <string name="photos_select_hint">Long-press to select photos for comparison.</string>
+    <string name="photos_selected_count">Selected: %1$d/2</string>
+    <string name="photos_compare_action">Compare</string>
+    <string name="photos_cancel_selection">Cancel selection</string>
+    <string name="photos_empty">No photos yet.\nTake one or pick from your gallery.</string>
+    <string name="photo_detail_default">Photo</string>
+    <string name="compare_title">Before / after</string>
+    <string name="compare_before">Before · %1$s</string>
+    <string name="compare_after">After · %1$s</string>
+    <string name="compare_hint">Drag left and right.</string>
+    <string name="compare_before_cd">Before</string>
+    <string name="compare_after_cd">After</string>
+    <string name="photo_delete_confirm_title">Delete photo?</string>
+
+    <!-- Settings -->
+    <string name="settings_section_coach">Coach</string>
+    <string name="settings_gemini_api">Gemini API</string>
+    <string name="settings_new_api_key">New API key</string>
+    <string name="settings_model">Model</string>
+    <string name="settings_load_models">Load models</string>
+    <string name="settings_refresh_models">Refresh models</string>
+    <string name="settings_models_manual_hint">Or type an ID manually</string>
+    <string name="settings_models_count">Available: %1$d</string>
+    <string name="settings_pick_from_list">Pick from list (%1$d models)</string>
+    <string name="settings_pick_model_title">Pick a model</string>
+    <string name="settings_save">Save</string>
+    <string name="settings_saved_key_and_model">Saved (key and model).</string>
+    <string name="settings_saved_model_only">Model saved. Key unchanged.</string>
+    <string name="settings_section_goals">Daily goals</string>
+    <string name="settings_goal_calories">Calories (kcal)</string>
+    <string name="settings_goal_protein">Protein (g)</string>
+    <string name="settings_goal_water">Water (ml)</string>
+    <string name="settings_goal_weight">Goal weight (kg)</string>
+    <string name="settings_save_goals">Save goals</string>
+    <string name="settings_goals_saved">Goals saved.</string>
+    <string name="settings_language">Language</string>
+    <string name="language_cs">Čeština</string>
+    <string name="language_en">English</string>
+    <string name="settings_section_feedback">Feedback</string>
+    <string name="settings_pat_stored">✓ Token is saved</string>
+    <string name="settings_pat_missing">⚠ Token is missing</string>
+    <string name="settings_new_github_token">New GitHub token (PAT)</string>
+    <string name="settings_show_key">Show key</string>
+    <string name="settings_report_issue">Report an issue</string>
+    <string name="settings_save_token">Save token</string>
+    <string name="settings_token_saved">Token saved.</string>
+    <string name="issue_dialog_title">Report an issue</string>
+    <string name="issue_title_label">Title</string>
+    <string name="issue_description_label">Description — what happened?</string>
+    <string name="issue_sending">Sending…</string>
+    <string name="issue_create">Create issue</string>
+    <string name="issue_created">Issue created: %1$s</string>
+    <string name="issue_error">Error: %1$s</string>
+    <string name="settings_help_section">Help</string>
+    <string name="settings_howto_title">How to get an API key</string>
+    <string name="settings_howto_body">1. Go to aistudio.google.com and sign in with your Google account.\n2. Create an API key (Create API key).\n3. Paste the key into the API key field above.\n\nGemini has a free tier that is plenty for regular chat use.</string>
+
+    <!-- GitHub issues -->
+    <string name="gh_pat_blank">GitHub token missing. Add it in Settings above.</string>
+
+    <!-- Mensa tool events / misc -->
+    <string name="ev_weight_saved">Weight %1$s kg saved.</string>
+    <string name="ev_food_saved_base">Meal “%1$s” saved</string>
+    <string name="ev_source_off">Open Food Facts</string>
+    <string name="ev_source_template">local template</string>
+    <string name="ev_source_estimate">estimate</string>
+    <string name="ev_grams_part">, ~%1$d g</string>
+    <string name="ev_kcal_part">(%1$s kcal)</string>
+    <string name="ev_water_saved">Water +%1$d ml.</string>
+    <string name="ev_workout_saved">Workout “%1$s” saved%2$s.</string>
+    <string name="ev_duration_part">(%1$d min)</string>
+    <string name="ev_fact_created">Note saved: %1$s</string>
+    <string name="ev_fact_updated">Note updated: %1$s</string>
+    <string name="ev_fact_deleted">Note #%1$d deleted.</string>
+    <string name="ev_already_logged">This meal has already been logged in this message, don\'t log it again.</string>
+    <string name="err_missing_param">Missing required parameter %1$s.</string>
+    <string name="err_unknown_tool">Unknown tool: %1$s</string>
+    <string name="err_unexpected">Unexpected error</string>
+    <string name="err_network">Network error — check your connection.</string>
+    <string name="gemini_empty_reply">Model returned no text</string>
+    <string name="gemini_empty_with_reason">Model returned no text (reason: %1$s).</string>
+    <string name="gemini_invalid_format">Invalid response format: %1$s</string>
+    <string name="gemini_network">Network error: %1$s</string>
+    <string name="gemini_http">HTTP %1$d</string>
+    <string name="gemini_overloaded">Model is overloaded.</string>
+    <string name="gemini_no_reply_after_retries">Model didn\'t respond after several attempts (overloaded?). Try again later.</string>
+    <string name="gemini_key_blank">API key is empty. Check it in Settings.</string>
+    <string name="chat_stream_network">Network error while streaming: %1$s</string>
+    <string name="chat_empty_reply">Model returned an empty reply.</string>
+    <string name="chat_tool_rounds">Too many tool-calling rounds.</string>
+    <string name="chat_key_missing">API key missing. Enter it in Settings.</string>
+
+    <!-- Fact categories -->
+    <string name="fact_preference">Likes</string>
+    <string name="fact_dislike">Dislikes</string>
+    <string name="fact_diet">Diet</string>
+    <string name="fact_goal">Goal</string>
+    <string name="fact_habit">Habit</string>
+    <string name="fact_health">Health</string>
+    <string name="fact_other">Other</string>
+
+    <!-- Mensa ratings -->
+    <string name="rating_green">GREEN</string>
+    <string name="rating_yellow">YELLOW</string>
+    <string name="rating_red">RED</string>
+
+    <!-- Weekly summary request -->
+    <string name="summary_request_intro">I want a weekly summary. Here is my data from the last 7 days:</string>
+    <string name="summary_weights_none">Weight: no measurements</string>
+    <string name="summary_foods_none">Meals: no records</string>
+    <string name="summary_workouts_none">Workouts: no records</string>
+    <string name="summary_ask">Please evaluate my week: what I\'m doing well, what to improve, and give me 3 concrete recommendations for next week.</string>
+    <string name="summary_meals_header">Meals (%1$d):</string>
+    <string name="summary_workouts_header">Workouts (%1$d):</string>
 </resources>

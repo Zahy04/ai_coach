@@ -47,6 +47,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
 import cz.rzahr.aicoach.ui.components.EmptyState
 import cz.rzahr.aicoach.ui.components.GlowProgressRing
@@ -75,10 +77,10 @@ fun FoodDiaryScreen(
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text("Deník jídel") },
+                title = { Text(stringResource(R.string.food_title)) },
                 actions = {
                     IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Filled.Add, contentDescription = "Přidat jídlo")
+                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.food_add))
                     }
                 }
             )
@@ -103,9 +105,9 @@ fun FoodDiaryScreen(
                     )
                     Spacer(Modifier.width(12.dp))
                     Column(Modifier.weight(1f)) {
-                        Text("Menza ČVUT", style = MaterialTheme.typography.titleMedium)
+                        Text(stringResource(R.string.mensa_entry_title), style = MaterialTheme.typography.titleMedium)
                         Text(
-                            "Dnešní obědy · fitness hodnocení",
+                            stringResource(R.string.mensa_entry_subtitle),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -122,8 +124,8 @@ fun FoodDiaryScreen(
                     ) {
                         EmptyState(
                             icon = Icons.Filled.Add,
-                            title = "Zatím žádná jídla",
-                            description = "Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +."
+                            title = stringResource(R.string.food_empty_title),
+                            description = stringResource(R.string.food_empty_desc)
                         )
                     }
                 } else {
@@ -137,6 +139,7 @@ fun FoodDiaryScreen(
                                 DayCard(
                                     dayEntries = dayEntries,
                                     dayHeader = capitalize(day.formatDayHeader()),
+                                    // records label resolved inside DayCard
                                     calorieGoal = calorieGoal,
                                     onDeleteEntry = { viewModel.delete(it) },
                                     onEditEntry = { editEntry = it }
@@ -195,7 +198,11 @@ private fun DayCard(
                 Column(Modifier.weight(1f)) {
                     Text(dayHeader, style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "${dayEntries.size} " + if (dayEntries.size == 1) "záznam" else if (dayEntries.size in 2..4) "záznamy" else "záznamů",
+                        when (dayEntries.size) {
+                            1 -> stringResource(R.string.records_one, 1)
+                            in 2..4 -> stringResource(R.string.records_few, dayEntries.size)
+                            else -> stringResource(R.string.records_many, dayEntries.size)
+                        },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -260,16 +267,16 @@ private fun FoodRow(
             IconButton(onClick = onDelete) {
                 Icon(
                     Icons.Filled.Delete,
-                    contentDescription = "Smazat",
+                    contentDescription = stringResource(R.string.delete),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
         }
 
         val macros = listOfNotNull(
-            entry.proteinG?.takeIf { it > 0 }?.let { Triple(ext.protein, it, "B ${it.toInt()} g") },
-            entry.carbsG?.takeIf { it > 0 }?.let { Triple(ext.carbs, it, "S ${it.toInt()} g") },
-            entry.fatG?.takeIf { it > 0 }?.let { Triple(ext.fat, it, "T ${it.toInt()} g") }
+            entry.proteinG?.takeIf { it > 0 }?.let { Triple(ext.protein, it, stringResource(R.string.macro_protein_short, it.toInt())) },
+            entry.carbsG?.takeIf { it > 0 }?.let { Triple(ext.carbs, it, stringResource(R.string.macro_carbs_short, it.toInt())) },
+            entry.fatG?.takeIf { it > 0 }?.let { Triple(ext.fat, it, stringResource(R.string.macro_fat_short, it.toInt())) }
         )
         if (macros.isNotEmpty()) {
             Spacer(Modifier.height(4.dp))
@@ -336,13 +343,13 @@ private fun EditFoodDialog(
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Jídlo") },
+                    label = { Text(stringResource(R.string.food_name_label)) },
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = calories,
                     onValueChange = { calories = it },
-                    label = { Text("Kalorie (kcal, nepovinné)") },
+                    label = { Text(stringResource(R.string.food_calories_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -350,7 +357,7 @@ private fun EditFoodDialog(
                     OutlinedTextField(
                         value = protein,
                         onValueChange = { protein = it },
-                        label = { Text("B (g)") },
+                        label = { Text(stringResource(R.string.macro_protein_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -358,7 +365,7 @@ private fun EditFoodDialog(
                     OutlinedTextField(
                         value = carbs,
                         onValueChange = { carbs = it },
-                        label = { Text("S (g)") },
+                        label = { Text(stringResource(R.string.macro_carbs_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -366,7 +373,7 @@ private fun EditFoodDialog(
                     OutlinedTextField(
                         value = fat,
                         onValueChange = { fat = it },
-                        label = { Text("T (g)") },
+                        label = { Text(stringResource(R.string.macro_fat_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -415,19 +422,19 @@ private fun AddFoodDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Přidat jídlo") },
+        title = { Text(stringResource(R.string.food_dialog_add_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
-                    label = { Text("Jídlo") },
+                    label = { Text(stringResource(R.string.food_name_label)) },
                     singleLine = true
                 )
                 OutlinedTextField(
                     value = calories,
                     onValueChange = { calories = it },
-                    label = { Text("Kalorie (kcal, nepovinné)") },
+                    label = { Text(stringResource(R.string.food_calories_label)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                 )
@@ -435,7 +442,7 @@ private fun AddFoodDialog(
                     OutlinedTextField(
                         value = protein,
                         onValueChange = { protein = it },
-                        label = { Text("B (g)") },
+                        label = { Text(stringResource(R.string.macro_protein_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -443,7 +450,7 @@ private fun AddFoodDialog(
                     OutlinedTextField(
                         value = carbs,
                         onValueChange = { carbs = it },
-                        label = { Text("S (g)") },
+                        label = { Text(stringResource(R.string.macro_carbs_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)
@@ -451,7 +458,7 @@ private fun AddFoodDialog(
                     OutlinedTextField(
                         value = fat,
                         onValueChange = { fat = it },
-                        label = { Text("T (g)") },
+                        label = { Text(stringResource(R.string.macro_fat_short, 0).substringBefore(' ')) },
                         singleLine = true,
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                         modifier = Modifier.weight(1f)

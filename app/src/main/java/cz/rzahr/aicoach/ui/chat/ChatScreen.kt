@@ -81,6 +81,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
 import cz.rzahr.aicoach.ui.theme.TextPrimaryDark
 import cz.rzahr.aicoach.util.formatTime
@@ -94,19 +96,19 @@ import java.time.format.DateTimeFormatter
 private sealed interface ChatRow {
     val key: String
 
-    data class Separator(val label: String, override val key: String) : ChatRow
+    data class Separator(val key2: String, val fallback: String, override val key: String) : ChatRow
     data class Message(val message: ChatMessageEntity) : ChatRow {
         override val key: String = "msg_${message.id}"
     }
 }
 
-private fun dayLabelFor(date: LocalDate): String {
-    val today = LocalDate.now()
-    return when (date) {
-        today -> "Dnes"
-        today.minusDays(1) -> "Včera"
-        else -> date.format(DateTimeFormatter.ofPattern("d. M. yyyy"))
-    }
+private const val DAY_KEY_TODAY = "today"
+private const val DAY_KEY_YESTERDAY = "yesterday"
+
+private fun dayKeyFor(date: LocalDate): String = when (date) {
+    LocalDate.now() -> DAY_KEY_TODAY
+    LocalDate.now().minusDays(1) -> DAY_KEY_YESTERDAY
+    else -> date.format(DateTimeFormatter.ofPattern("d. M. yyyy"))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -160,7 +162,7 @@ fun ChatScreen(
         try {
             speechLauncher.launch(intent)
         } catch (_: android.content.ActivityNotFoundException) {
-            snackbarScope.launch { snackbarHostState.showSnackbar("Hlasový vstup není na tomto zařízení dostupný.") }
+            snackbarScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.chat_voice_unavailable)) }
         }
     }
 
@@ -170,7 +172,7 @@ fun ChatScreen(
             messages.forEach { message ->
                 val date = message.timestamp.toLocalDate()
                 if (date != lastDate) {
-                    add(ChatRow.Separator(dayLabelFor(date), "sep_$date"))
+                    add(ChatRow.Separator(dayKeyFor(date), date.format(DateTimeFormatter.ofPattern("d. M. yyyy")), "sep_$date"))
                     lastDate = date
                 }
                 add(ChatRow.Message(message))
@@ -216,7 +218,7 @@ fun ChatScreen(
             TopAppBar(
                 title = {
                     Column {
-                        Text("Chat s trenérem")
+                        Text(stringResource(R.string.chat_title))
                         Text(
                             currentModel.removePrefix("gemini-"),
                             style = MaterialTheme.typography.labelSmall,
@@ -227,7 +229,7 @@ fun ChatScreen(
                 actions = {
                     Box {
                         IconButton(onClick = { modelMenuExpanded = true }) {
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = "Změnit model")
+                            Icon(Icons.Filled.ArrowDropDown, contentDescription = stringResource(R.string.chat_change_model))
                         }
                         DropdownMenu(
                             expanded = modelMenuExpanded,
@@ -235,13 +237,13 @@ fun ChatScreen(
                         ) {
                             if (modelsLoading) {
                                 DropdownMenuItem(
-                                    text = { Text("Načítám modely…") },
+                                    text = { Text(stringResource(R.string.chat_models_loading)) },
                                     onClick = {},
                                     enabled = false
                                 )
                             } else if (availableModels.isEmpty()) {
                                 DropdownMenuItem(
-                                    text = { Text("Modely se nepodařilo načíst — zkus znovu") },
+                                    text = { Text(stringResource(R.string.chat_models_failed)) },
                                     onClick = { viewModel.loadModels() }
                                 )
                             } else {
@@ -274,7 +276,7 @@ fun ChatScreen(
                     }
                     if (messages.isNotEmpty()) {
                         IconButton(onClick = { confirmClear = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Smazat chat")
+                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.chat_delete_history))
                         }
                     }
                 }
@@ -312,7 +314,7 @@ fun ChatScreen(
                 ) {
                     items(rows, key = { it.key }) { row ->
                         when (row) {
-                            is ChatRow.Separator -> DaySeparator(row.label)
+                            is ChatRow.Separator -> DaySeparator(row.key2, row.fallback)
                             is ChatRow.Message -> MessageBubble(
                                 message = row.message,
                                 canRegenerate = row.message.id == lastModelId && !sending,
@@ -374,23 +376,28 @@ fun ChatScreen(
     if (confirmClear) {
         AlertDialog(
             onDismissRequest = { confirmClear = false },
-            title = { Text("Smazat historii chatu?") },
-            text = { Text("Zprávy se smažou pouze z chatu. Uložená data (váha, jídlo, poznámky) zůstanou.") },
+            title = { Text(stringResource(R.string.chat_clear_confirm_title)) },
+            text = { Text(stringResource(R.string.chat_clear_confirm_text)) },
             confirmButton = {
                 TextButton(onClick = {
                     confirmClear = false
                     viewModel.clearChat()
-                }) { Text("Smazat") }
+                }) { Text(stringResource(R.string.delete)) }
             },
             dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text("Zrušit") }
+                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) }
             }
         )
     }
 }
 
 @Composable
-private fun DaySeparator(label: String) {
+private fun DaySeparator(key: String, fallback: String) {
+    val label = when (key) {
+        DAY_KEY_TODAY -> stringResource(R.string.day_today)
+        DAY_KEY_YESTERDAY -> stringResource(R.string.day_yesterday)
+        else -> fallback
+    }
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Text(
             label,
@@ -432,18 +439,18 @@ private fun ApiKeyMissingBanner(onOpenSettings: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                "Chybí Gemini API klíč",
+                stringResource(R.string.chat_missing_key_title),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.size(4.dp))
             Text(
-                "Bez klíče chat nefunguje. Zdarma ho získáš na aistudio.google.com.",
+                stringResource(R.string.chat_missing_key_body),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.size(8.dp))
-            OutlinedButton(onClick = onOpenSettings) { Text("Otevřít nastavení") }
+            OutlinedButton(onClick = onOpenSettings) { Text(stringResource(R.string.chat_open_settings)) }
         }
     }
 }
@@ -468,9 +475,9 @@ private fun ErrorBanner(
             )
             Spacer(Modifier.size(8.dp))
             Row {
-                OutlinedButton(onClick = onRetry) { Text("Zkusit znovu") }
+                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
                 Spacer(Modifier.width(8.dp))
-                TextButton(onClick = onDismiss) { Text("Zavřít") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
             }
         }
     }
@@ -480,7 +487,7 @@ private fun ErrorBanner(
 private fun EmptyChatHint(modifier: Modifier = Modifier) {
     Box(modifier = modifier, contentAlignment = Alignment.Center) {
         Text(
-            "Napiš mi, co jsi dnes jedl nebo jak jsi cvičil.\nTřeba: „K snídani jsem měl ovesnou kaši a vážím 78 kg.“",
+            stringResource(R.string.chat_empty_hint),
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(32.dp)
@@ -536,7 +543,7 @@ private fun MessageBubble(
                 onDismissRequest = { menuExpanded = false }
             ) {
                 DropdownMenuItem(
-                    text = { Text("Kopírovat") },
+                    text = { Text(stringResource(R.string.chat_copy)) },
                     onClick = {
                         menuExpanded = false
                         onCopy(message.content)
@@ -544,7 +551,7 @@ private fun MessageBubble(
                 )
                 if (!isUser && canRegenerate) {
                     DropdownMenuItem(
-                        text = { Text("Regenerovat odpověď") },
+                        text = { Text(stringResource(R.string.chat_regenerate)) },
                         onClick = {
                             menuExpanded = false
                             onRegenerate()
@@ -682,13 +689,13 @@ private fun PendingImageChip(path: String, onRemove: () -> Unit) {
         )
         Spacer(Modifier.width(8.dp))
         Text(
-            "Fotka připravena k odeslání",
+            stringResource(R.string.chat_pending_photo),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
         IconButton(onClick = onRemove) {
-            Icon(Icons.Filled.Close, contentDescription = "Odebrat fotku")
+            Icon(Icons.Filled.Close, contentDescription = stringResource(R.string.chat_remove_photo))
         }
     }
 }
@@ -719,21 +726,21 @@ private fun InputRow(
             IconButton(onClick = onMicClick, enabled = enabled && !sending) {
                 Icon(
                     Icons.Filled.Mic,
-                    contentDescription = "Diktovat",
+                    contentDescription = stringResource(R.string.chat_dictate),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onCameraClick, enabled = enabled && !sending) {
                 Icon(
                     Icons.Filled.PhotoCamera,
-                    contentDescription = "Vyfotit",
+                    contentDescription = stringResource(R.string.chat_take_photo),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
             IconButton(onClick = onAttachClick, enabled = enabled && !sending) {
                 Icon(
                     Icons.Filled.AddPhotoAlternate,
-                    contentDescription = "Připojit fotku",
+                    contentDescription = stringResource(R.string.chat_attach_photo),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             }
@@ -743,7 +750,7 @@ private fun InputRow(
                 modifier = Modifier.weight(1f),
                 placeholder = {
                     Text(
-                        "Napiš zprávu…",
+                        stringResource(R.string.chat_input_placeholder),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 },
@@ -773,7 +780,11 @@ private fun InputRow(
             ) {
                 Icon(
                     if (sending) Icons.Filled.Close else Icons.AutoMirrored.Filled.Send,
-                    contentDescription = if (sending) "Zastavit generování" else "Odeslat"
+                    contentDescription = if (sending) {
+                        stringResource(R.string.chat_stop_generation)
+                    } else {
+                        stringResource(R.string.chat_send)
+                    }
                 )
             }
         }

@@ -131,7 +131,7 @@ class MensaEstimatorCoreTest {
             core.parseEstimates(json, text, 1)
             fail("Měla být vyhozena MensaEstimationException")
         } catch (e: MensaEstimationException) {
-            assertTrue(e.message!!.contains("Neplatný formát"))
+            assertTrue(e.message!!.contains("Invalid response format"))
             assertTrue(e.message!!.contains("nevím")) // obsahuje úryvek skutečné odpovědi
         }
     }

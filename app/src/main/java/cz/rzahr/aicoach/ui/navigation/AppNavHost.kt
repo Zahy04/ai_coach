@@ -21,6 +21,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -36,6 +37,7 @@ import cz.rzahr.aicoach.ui.photos.PhotoCompareScreen
 import cz.rzahr.aicoach.ui.photos.PhotoDetailScreen
 import cz.rzahr.aicoach.ui.photos.PhotosScreen
 import cz.rzahr.aicoach.ui.settings.SettingsScreen
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.ui.weight.WeightScreen
 
 object Routes {
@@ -60,26 +62,28 @@ private data class BottomTab(
     val icon: ImageVector
 )
 
-private val bottomTabs = listOf(
-    BottomTab(Routes.DASHBOARD, "Přehled", Icons.Filled.SpaceDashboard),
-    BottomTab(Routes.CHAT, "Chat", Icons.Filled.Chat),
-    BottomTab(Routes.WEIGHT, "Váha", Icons.Filled.MonitorWeight),
-    BottomTab(Routes.FOOD, "Jídlo", Icons.Filled.Restaurant),
-    BottomTab(Routes.PHOTOS, "Fotky", Icons.Filled.PhotoLibrary)
+@Composable
+private fun bottomTabs(): List<BottomTab> = listOf(
+    BottomTab(Routes.DASHBOARD, stringResource(R.string.tab_dashboard), Icons.Filled.SpaceDashboard),
+    BottomTab(Routes.CHAT, stringResource(R.string.tab_chat), Icons.Filled.Chat),
+    BottomTab(Routes.WEIGHT, stringResource(R.string.tab_weight), Icons.Filled.MonitorWeight),
+    BottomTab(Routes.FOOD, stringResource(R.string.tab_food), Icons.Filled.Restaurant),
+    BottomTab(Routes.PHOTOS, stringResource(R.string.tab_photos), Icons.Filled.PhotoLibrary)
 )
 
 @Composable
 fun AiCoachApp() {
     val navController = rememberNavController()
     val backStackEntry by navController.currentBackStackEntryAsState()
+    val tabs = bottomTabs()
     val currentRoute = backStackEntry?.destination?.route
-    val showBottomBar = bottomTabs.any { it.route == currentRoute }
+    val showBottomBar = tabs.any { it.route == currentRoute }
 
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
                 NavigationBar {
-                    bottomTabs.forEach { tab ->
+                    tabs.forEach { tab ->
                         NavigationBarItem(
                             selected = currentRoute == tab.route,
                             onClick = {

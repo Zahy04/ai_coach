@@ -1,5 +1,7 @@
 package cz.rzahr.aicoach.llm
 
+import android.content.Context
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.repo.FactRepository
 import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.WaterRepository
@@ -36,6 +38,7 @@ data class ToolExecutionResult(
 
 @Singleton
 class ToolExecutor @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val weightRepository: WeightRepository,
     private val foodRepository: FoodRepository,
     private val workoutRepository: WorkoutRepository,
@@ -53,24 +56,30 @@ class ToolExecutor @Inject constructor(
             ToolSpecs.LOG_WORKOUT -> logWorkout(call)
             ToolSpecs.SAVE_FACT -> saveFact(call)
             ToolSpecs.DELETE_FACT -> deleteFact(call)
-            else -> ToolExecutionResult(null, ToolSpecs.errorResult("Neznámý nástroj: ${call.name}"))
+            else -> ToolExecutionResult(
+                null,
+                ToolSpecs.errorResult(context.getString(R.string.err_unknown_tool, call.name))
+            )
         }
     } catch (e: Exception) {
-        ToolExecutionResult(null, ToolSpecs.errorResult(e.message ?: "Neočekávaná chyba"))
+        ToolExecutionResult(null, ToolSpecs.errorResult(e.message ?: context.getString(R.string.err_unexpected)))
     }
 
     private suspend fun saveWeight(call: FunctionCall): ToolExecutionResult {
         val weightKg = call.args?.get("weight_kg")?.jsonPrimitive?.doubleOrNull
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr weight_kg."))
+            ?: return missingParam("weight_kg")
         val note = call.args?.get("note")?.jsonPrimitive?.contentOrNull()
         weightRepository.add(weightKg, note)
         val formatted = String.format(Locale.forLanguageTag("cs"), "%.1f", weightKg)
-        return ToolExecutionResult("Váha $formatted kg uložena.", ToolSpecs.okResult())
+        return ToolExecutionResult(
+            context.getString(R.string.ev_weight_saved, formatted),
+            ToolSpecs.okResult()
+        )
     }
 
     private suspend fun logFood(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult {
         val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr name."))
+            ?: return missingParam("name")
         val quantityG = call.args?.get("quantity_g")?.jsonPrimitive?.doubleOrNull
 
         val dedupeKey = name.trim().lowercase()
@@ -79,14 +88,14 @@ class ToolExecutor @Inject constructor(
                 null,
                 buildJsonObject {
                     put("status", "already_logged")
-                    put("message", "Toto jídlo už bylo v této zprávě zaznamenáno, neukládej ho znovu.")
+                    put("message", context.getString(R.string.ev_already_logged))
                 }
             )
         }
         turnContext.loggedFoods.add(dedupeKey)
 
         // 1) Open Food Facts → 2) odhad modelu
-        var sourceLabel = "odhad"
+        var sourceLabel = context.getString(R.string.ev_source_estimate)
         var source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_CHAT
         var resolvedName = name
         var resolved: ResolvedNutrition
@@ -102,7 +111,7 @@ class ToolExecutor @Inject constructor(
                 refGrams = quantityG ?: 100.0
             )
             if (off.productName.isNotBlank()) resolvedName = "$name (${off.productName})"
-            sourceLabel = "Open Food Facts"
+            sourceLabel = context.getString(R.string.ev_source_off)
             source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_API
         } else {
             resolved = ResolvedNutrition(
@@ -124,12 +133,19 @@ class ToolExecutor @Inject constructor(
         )
 
         val event = buildString {
-            append("Jídlo „$resolvedName“ uloženo")
-            resolved.calories?.let { append(" (${formatNumber(it)} kcal)") }
-            append(" · zdroj: $sourceLabel")
-            quantityG?.let { append(", ~${formatNumber(it.toInt())} g") }
+            append(context.getString(R.string.ev_food_saved_base, resolvedName))
+            resolved.calories?.let {
+                append(" ")
+                append(context.getString(R.string.ev_kcal_part, formatNumber(it)))
+            }
+            append(" · ")
+            append(sourceLabel)
+            quantityG?.let {
+                append(context.getString(R.string.ev_grams_part, it.toInt()))
+            }
             append(".")
         }
+
         return ToolExecutionResult(event, buildJsonObject {
             put("status", "ok")
             put("source", sourceLabel)
@@ -145,7 +161,7 @@ class ToolExecutor @Inject constructor(
         val amountMl = call.args?.get("amount_ml")?.jsonPrimitive?.intOrNull ?: 250
         waterRepository.add(amountMl)
         return ToolExecutionResult(
-            "Voda +$amountMl ml.",
+            context.getString(R.string.ev_water_saved, amountMl),
             buildJsonObject {
                 put("status", "ok")
                 put("logged_ml", amountMl)
@@ -155,37 +171,51 @@ class ToolExecutor @Inject constructor(
 
     private suspend fun logWorkout(call: FunctionCall): ToolExecutionResult {
         val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr name."))
+            ?: return missingParam("name")
         val duration = call.args?.get("duration_minutes")?.jsonPrimitive?.intOrNull
         val caloriesBurned = call.args?.get("calories_burned")?.jsonPrimitive?.intOrNull
         val note = call.args?.get("note")?.jsonPrimitive?.contentOrNull()
         workoutRepository.add(name = name, durationMinutes = duration, caloriesBurned = caloriesBurned, note = note)
         val event = buildString {
-            append("Trénink „$name“ uložen")
-            duration?.let { append(" ($it min)") }
-            append(".")
+            append(
+                context.getString(
+                    R.string.ev_workout_saved,
+                    name,
+                    duration?.let { " " + context.getString(R.string.ev_duration_part, it) } ?: ""
+                )
+            )
         }
         return ToolExecutionResult(event, ToolSpecs.okResult())
     }
 
     private suspend fun saveFact(call: FunctionCall): ToolExecutionResult {
         val category = call.args?.get("category")?.jsonPrimitive?.contentOrNull()
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr category."))
+            ?: return missingParam("category")
         val content = call.args?.get("content")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr content."))
+            ?: return missingParam("content")
         val factId = call.args?.get("fact_id")?.jsonPrimitive?.longOrNull
 
         val result = factRepository.upsert(category, content, factId)
-        val event = if (result.created) "Poznámka uložena: $content" else "Poznámka aktualizována: $content"
+        val event = if (result.created) {
+            context.getString(R.string.ev_fact_created, content)
+        } else {
+            context.getString(R.string.ev_fact_updated, content)
+        }
         return ToolExecutionResult(event, ToolSpecs.okResult())
     }
 
     private suspend fun deleteFact(call: FunctionCall): ToolExecutionResult {
         val factId = call.args?.get("fact_id")?.jsonPrimitive?.longOrNull
-            ?: return ToolExecutionResult(null, ToolSpecs.errorResult("Chybí povinný parametr fact_id."))
+            ?: return missingParam("fact_id")
         factRepository.delete(factId)
-        return ToolExecutionResult("Poznámka #$factId smazána.", ToolSpecs.okResult())
+        return ToolExecutionResult(
+            context.getString(R.string.ev_fact_deleted, factId),
+            ToolSpecs.okResult()
+        )
     }
+
+    private fun missingParam(param: String): ToolExecutionResult =
+        ToolExecutionResult(null, ToolSpecs.errorResult(context.getString(R.string.err_missing_param, param)))
 
     private fun formatNumber(value: Int): String =
         String.format(Locale.forLanguageTag("cs"), "%d", value)

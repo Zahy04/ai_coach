@@ -54,6 +54,8 @@ import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.ProgressPhotoEntity
 import cz.rzahr.aicoach.util.formatDate
 import java.io.File
@@ -86,7 +88,7 @@ fun PhotosScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Progress fotky") },
+                title = { Text(stringResource(R.string.photos_title)) },
                 actions = {
                     if (selection.size == 2) {
                         val ids = selection.sorted()
@@ -94,12 +96,12 @@ fun PhotosScreen(
                             onOpenCompare(ids.first(), ids.last())
                             selection = emptySet()
                         }) {
-                            Icon(Icons.Filled.Compare, contentDescription = "Porovnat")
+                            Icon(Icons.Filled.Compare, contentDescription = stringResource(R.string.photos_compare_action))
                         }
                     }
                     if (selection.isNotEmpty()) {
                         IconButton(onClick = { selection = emptySet() }) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zrušit výběr")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.photos_cancel_selection))
                         }
                     }
                 }
@@ -133,21 +135,21 @@ fun PhotosScreen(
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Filled.AddAPhoto, contentDescription = null)
-                    Text("Vyfotit", modifier = Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.photos_take), modifier = Modifier.padding(start = 8.dp))
                 }
                 OutlinedButton(
                     onClick = { pickImage.launch(arrayOf("image/*")) },
                     modifier = Modifier.weight(1f)
                 ) {
                     Icon(Icons.Filled.PhotoLibrary, contentDescription = null)
-                    Text("Z galerie", modifier = Modifier.padding(start = 8.dp))
+                    Text(stringResource(R.string.photos_pick), modifier = Modifier.padding(start = 8.dp))
                 }
             }
 
             if (photos.isEmpty()) {
                 Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                     Text(
-                        "Zatím žádné fotky.\nVyfoť se nebo vyber fotku z galerie.",
+                        stringResource(R.string.photos_empty),
                         style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(32.dp)
@@ -155,7 +157,11 @@ fun PhotosScreen(
                 }
             } else {
                 Text(
-                    if (selection.isEmpty()) "Dlouhým podržením vybereš fotky pro porovnání." else "Vybráno: ${selection.size}/2",
+                    if (selection.isEmpty()) {
+                        stringResource(R.string.photos_select_hint)
+                    } else {
+                        stringResource(R.string.photos_selected_count, selection.size)
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(horizontal = 16.dp)
@@ -253,7 +259,7 @@ fun PhotoDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(photo?.timestamp?.formatDate() ?: "Fotka") },
+                title = { Text(photo?.timestamp?.formatDate() ?: stringResource(R.string.photo_detail_default)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zpět")
@@ -261,7 +267,7 @@ fun PhotoDetailScreen(
                 },
                 actions = {
                     IconButton(onClick = { confirmDelete = true }) {
-                        Icon(Icons.Filled.Delete, contentDescription = "Smazat")
+                        Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.delete))
                     }
                 }
             )
@@ -288,16 +294,16 @@ fun PhotoDetailScreen(
         photo?.let { target ->
             AlertDialog(
                 onDismissRequest = { confirmDelete = false },
-                title = { Text("Smazat fotku?") },
+                title = { Text(stringResource(R.string.photo_delete_confirm_title)) },
                 confirmButton = {
                     TextButton(onClick = {
                         confirmDelete = false
                         viewModel.delete(target)
                         onBack()
-                    }) { Text("Smazat") }
+                    }) { Text(stringResource(R.string.delete)) }
                 },
                 dismissButton = {
-                    TextButton(onClick = { confirmDelete = false }) { Text("Zrušit") }
+                    TextButton(onClick = { confirmDelete = false }) { Text(stringResource(R.string.cancel)) }
                 }
             )
         }

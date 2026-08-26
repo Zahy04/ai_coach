@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AI Coach</string>
+
+    <!-- Navigation -->
+    <string name="tab_dashboard">Přehled</string>
+    <string name="tab_chat">Chat</string>
+    <string name="tab_weight">Váha</string>
+    <string name="tab_food">Jídlo</string>
+    <string name="tab_photos">Fotky</string>
+    <string name="settings_title">Nastavení</string>
+
+    <!-- Common -->
+    <string name="day_today">Dnes</string>
+    <string name="day_yesterday">Včera</string>
+    <string name="back">Zpět</string>
+    <string name="delete">Smazat</string>
+    <string name="cancel">Zrušit</string>
+    <string name="save">Uložit</string>
+    <string name="close">Zavřít</string>
+    <string name="retry">Zkusit znovu</string>
+    <string name="refresh">Obnovit</string>
+    <string name="edit">Upravit</string>
+    <string name="keep_blank_to_keep">Nech prázdné pro ponechání</string>
+    <string name="key_stored">✓ Klíč je uložen</string>
+    <string name="key_missing">⚠ Klíč chybí</string>
+    <string name="saved">Uloženo.</string>
+
+    <!-- Dashboard -->
+    <string name="dashboard_title">AI Coach</string>
+    <string name="dashboard_today_overview">Dnešní přehled</string>
+    <string name="dashboard_calories_week_label">Kalorie · posledních 7 dní</string>
+    <string name="stat_weight">Váha</string>
+    <string name="stat_weight_goal_left">cíl %1$.1f kg · zbývá %2$.1f kg</string>
+    <string name="stat_photos">Fotky</string>
+    <string name="photos_one">fotka</string>
+    <string name="photos_few">fotky</string>
+    <string name="photos_many">fotek</string>
+    <string name="stat_workouts">Tréninky</string>
+    <string name="workouts_total_subtitle">celkem záznamů</string>
+    <string name="stat_notes">Poznámky</string>
+    <string name="notes_subtitle">co o tobě vím</string>
+    <string name="section_badges">Odznaky</string>
+    <string name="badge_streak_3">3 dny v řadě</string>
+    <string name="badge_streak_7">7 dní v řadě</string>
+    <string name="badge_streak_30">30 dní v řadě</string>
+    <string name="badge_weighins_10">10 vážení</string>
+    <string name="badge_foods_50">50 jídel</string>
+    <string name="badge_photos_20">20 fotek</string>
+    <string name="weekly_summary_title">Týdenní shrnutí</string>
+    <string name="weekly_summary_subtitle">Nech trenéra vyhodnotit tvůj týden</string>
+    <string name="facts_section">Co o tobě vím</string>
+    <string name="facts_empty_hint">Řekni mi v chatu, co máš rád, jaké máš cíle nebo jak běžně jíš.</string>
+    <string name="facts_count">%1$d poznámek</string>
+    <string name="workouts_section">Poslední tréninky</string>
+    <string name="workouts_empty_hint">Zatím žádné záznamy. Napiš mi v chatu, co jsi cvičil.</string>
+    <string name="protein_unit">%1$d g</string>
+    <string name="ring_protein_goal">/ %1$d bílkovin</string>
+    <string name="ring_kcal_goal">/ %1$d kcal</string>
+
+    <!-- Chat -->
+    <string name="chat_title">Chat s trenérem</string>
+    <string name="chat_delete_history">Smazat chat</string>
+    <string name="chat_clear_confirm_title">Smazat historii chatu?</string>
+    <string name="chat_clear_confirm_text">Zprávy se smažou pouze z chatu. Uložená data (váha, jídlo, poznámky) zůstanou.</string>
+    <string name="chat_missing_key_title">Chybí Gemini API klíč</string>
+    <string name="chat_missing_key_body">Bez klíče chat nefunguje. Zdarma ho získáš na aistudio.google.com.</string>
+    <string name="chat_open_settings">Otevřít nastavení</string>
+    <string name="chat_empty_hint">Napiš mi, co jsi dnes jedl nebo jak jsi cvičil.\nTřeba: „K snídani jsem měl ovesnou kaši a vážím 78 kg.“</string>
+    <string name="chat_typing">Trenér píše…</string>
+    <string name="chat_input_placeholder">Napiš zprávu…</string>
+    <string name="chat_send">Odeslat</string>
+    <string name="chat_stop_generation">Zastavit generování</string>
+    <string name="chat_attach_photo">Připojit fotku</string>
+    <string name="chat_take_photo">Vyfotit</string>
+    <string name="chat_dictate">Diktovat</string>
+    <string name="chat_voice_unavailable">Hlasový vstup není na tomto zařízení dostupný.</string>
+    <string name="chat_pending_photo">Fotka připravena k odeslání</string>
+    <string name="chat_remove_photo">Odebrat fotku</string>
+    <string name="chat_copy">Kopírovat</string>
+    <string name="chat_regenerate">Regenerovat odpověď</string>
+    <string name="chat_change_model">Změnit model</string>
+    <string name="chat_models_loading">Načítám modely…</string>
+    <string name="chat_models_failed">Modely se nepodařilo načíst — zkus znovu</string>
+    <string name="error_generic">Neznámá chyba.</string>
+
+    <!-- Weight -->
+    <string name="weight_title">Váha</string>
+    <string name="weight_add">Přidat váhu</string>
+    <string name="weight_chart_title">Vývoj váhy</string>
+    <string name="period_30_days">30 dní</string>
+    <string name="period_90_days">90 dní</string>
+    <string name="period_all">Vše</string>
+    <string name="legend_measurements">Měření</string>
+    <string name="legend_trend">Trend</string>
+    <string name="legend_ma7">7denní průměr</string>
+    <string name="weight_empty_short">—</string>
+    <string name="weight_no_records">Zatím žádné záznamy váhy.</string>
+    <string name="weight_need_two">Pro graf jsou potřeba alespoň 2 měření.</string>
+    <string name="weight_dialog_add_title">Zaznamenat váhu</string>
+    <string name="weight_dialog_edit_title">Upravit záznam</string>
+    <string name="weight_field_label">Váha (kg)</string>
+    <string name="note_field_label">Poznámka (nepovinné)</string>
+    <string name="kg_value">%1$.1f kg</string>
+    <string name="delta_from_last">%1$s%2$.1f kg</string>
+
+    <!-- Food -->
+    <string name="food_title">Deník jídel</string>
+    <string name="food_add">Přidat jídlo</string>
+    <string name="food_empty_title">Zatím žádná jídla</string>
+    <string name="food_empty_desc">Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +.</string>
+    <string name="records_one">%1$d záznam</string>
+    <string name="records_few">%1$d záznamy</string>
+    <string name="records_many">%1$d záznamů</string>
+    <string name="food_dialog_add_title">Přidat jídlo</string>
+    <string name="food_dialog_edit_title">Upravit jídlo</string>
+    <string name="food_name_label">Jídlo</string>
+    <string name="food_calories_label">Kalorie (kcal, nepovinné)</string>
+    <string name="macro_protein_short">B %1$d g</string>
+    <string name="macro_carbs_short">S %1$d g</string>
+    <string name="macro_fat_short">T %1$d g</string>
+
+    <!-- Mensa -->
+    <string name="mensa_entry_title">Menza ČVUT</string>
+    <string name="mensa_entry_subtitle">Dnešní obědy · fitness hodnocení</string>
+    <string name="mensa_title">Menza ČVUT</string>
+    <string name="mensa_system_sd">Studentský dům</string>
+    <string name="mensa_system_tech">Technická menza</string>
+    <string name="mensa_loading">Načítám menu a odhaduji kalorie…</string>
+    <string name="mensa_scrape_failed">Nepodařilo se načíst jídelníček ze stránek SUZ. Zkus obnovit později.</string>
+    <string name="mensa_estimate_prefix">Odhady kalorií: %1$s Zkus tlačítkem ↻ obnovit.</string>
+    <string name="mensa_overloaded">Model je přetížen.</string>
+    <string name="mensa_exhausted">Model se neozval ani po několika pokusech (přetížení?). Zkus to za chvíli.</string>
+    <string name="mensa_key_blank">API klíč je prázdný. Zkontroluj ho v Nastavení.</string>
+    <string name="mensa_invalid_format">Neplatný formát odpovědi: %1$s</string>
+    <string name="mensa_empty_text">Model nevrátil text</string>
+    <string name="mensa_reason_suffix">(důvod: %1$s)</string>
+    <string name="mensa_weekend_title">Víkend</string>
+    <string name="mensa_weekend_desc">Menza o víkendu nevaří. Mrkni sem v pondělí.</string>
+    <string name="mensa_no_meals_title">Žádná jídla pro dnešek</string>
+    <string name="mensa_no_meals_desc">Menu se nepodařilo načíst, nebo je menza dnes zavřená. Zkus obnovit.</string>
+    <string name="mensa_log_button">Zapsat</string>
+    <string name="mensa_logged_button">Zapsáno</string>
+    <string name="mensa_logged_snackbar">Zapsáno do deníku: %1$s</string>
+    <string name="mensa_no_estimate">odhad není dostupný</string>
+    <string name="kcal_range">≈ %1$d–%2$d kcal</string>
+
+    <!-- Photos -->
+    <string name="photos_title">Progress fotky</string>
+    <string name="photos_take">Vyfotit</string>
+    <string name="photos_pick">Z galerie</string>
+    <string name="photos_select_hint">Dlouhým podržením vybereš fotky pro porovnání.</string>
+    <string name="photos_selected_count">Vybráno: %1$d/2</string>
+    <string name="photos_compare_action">Porovnat</string>
+    <string name="photos_cancel_selection">Zrušit výběr</string>
+    <string name="photos_empty">Zatím žádné fotky.\nVyfoť se nebo vyber fotku z galerie.</string>
+    <string name="photo_detail_default">Fotka</string>
+    <string name="compare_title">Před / po</string>
+    <string name="compare_before">Před · %1$s</string>
+    <string name="compare_after">Po · %1$s</string>
+    <string name="compare_hint">Táhni prstem doleva a doprava.</string>
+    <string name="compare_before_cd">Před</string>
+    <string name="compare_after_cd">Po</string>
+    <string name="photo_delete_confirm_title">Smazat fotku?</string>
+
+    <!-- Settings -->
+    <string name="settings_section_coach">Trenér</string>
+    <string name="settings_gemini_api">Gemini API</string>
+    <string name="settings_new_api_key">Nový API klíč</string>
+    <string name="settings_model">Model</string>
+    <string name="settings_load_models">Načíst modely</string>
+    <string name="settings_refresh_models">Obnovit modely</string>
+    <string name="settings_models_manual_hint">Nebo zadej ID ručně</string>
+    <string name="settings_models_count">Dostupných: %1$d</string>
+    <string name="settings_pick_from_list">Vybrat ze seznamu (%1$d modelů)</string>
+    <string name="settings_pick_model_title">Vyber model</string>
+    <string name="settings_save">Uložit</string>
+    <string name="settings_saved_key_and_model">Uloženo (klíč i model).</string>
+    <string name="settings_saved_model_only">Model uložen. Klíč zůstal.</string>
+    <string name="settings_section_goals">Denní cíle</string>
+    <string name="settings_goal_calories">Kalorie (kcal)</string>
+    <string name="settings_goal_protein">Bílkoviny (g)</string>
+    <string name="settings_goal_water">Voda (ml)</string>
+    <string name="settings_goal_weight">Cílová váha (kg)</string>
+    <string name="settings_save_goals">Uložit cíle</string>
+    <string name="settings_goals_saved">Cíle uloženy.</string>
+    <string name="settings_language">Jazyk</string>
+    <string name="language_cs">Čeština</string>
+    <string name="language_en">English</string>
+    <string name="settings_section_feedback">Zpětná vazba</string>
+    <string name="settings_pat_stored">✓ Token je uložen</string>
+    <string name="settings_pat_missing">⚠ Token chybí</string>
+    <string name="settings_new_github_token">Nový GitHub token (PAT)</string>
+    <string name="settings_show_key">Zobrazit klíč</string>
+    <string name="settings_report_issue">Nahlásit problém</string>
+    <string name="settings_save_token">Uložit token</string>
+    <string name="settings_token_saved">Token uložen.</string>
+    <string name="issue_dialog_title">Nahlásit problém</string>
+    <string name="issue_title_label">Název</string>
+    <string name="issue_description_label">Popis — co se stalo?</string>
+    <string name="issue_sending">Odesílám…</string>
+    <string name="issue_create">Vytvořit issue</string>
+    <string name="issue_created">Issue vytvořeno: %1$s</string>
+    <string name="issue_error">Chyba: %1$s</string>
+    <string name="settings_help_section">Nápověda</string>
+    <string name="settings_howto_title">Jak získat API klíč</string>
+    <string name="settings_howto_body">1. Jdi na aistudio.google.com a přihlas se Google účtem.\n2. Vytvoř API klíč (Create API key).\n3. Klíč vlož sem do pole API klíč.\n\nGemini má volný tier, který pro běžné použití chatu bohatě stačí.</string>
+
+    <!-- GitHub issues -->
+    <string name="gh_pat_blank">GitHub token chybí. Vlož ho výše v Nastavení.</string>
+
+    <!-- Mensa tool events / misc -->
+    <string name="ev_weight_saved">Váha %1$s kg uložena.</string>
+    <string name="ev_food_saved_base">Jídlo „%1$s“ uloženo</string>
+    <string name="ev_source_off">Open Food Facts</string>
+    <string name="ev_source_template">lokální šablona</string>
+    <string name="ev_source_estimate">odhad</string>
+    <string name="ev_grams_part">, ~%1$d g</string>
+    <string name="ev_kcal_part">(%1$s kcal)</string>
+    <string name="ev_water_saved">Voda +%1$d ml.</string>
+    <string name="ev_workout_saved">Trénink „%1$s“ uložen%2$s.</string>
+    <string name="ev_duration_part">(%1$d min)</string>
+    <string name="ev_fact_created">Poznámka uložena: %1$s</string>
+    <string name="ev_fact_updated">Poznámka aktualizována: %1$s</string>
+    <string name="ev_fact_deleted">Poznámka #%1$d smazána.</string>
+    <string name="ev_already_logged">Toto jídlo už bylo v této zprávě zaznamenáno, neukládej ho znovu.</string>
+    <string name="err_missing_param">Chybí povinný parametr %1$s.</string>
+    <string name="err_unknown_tool">Neznámý nástroj: %1$s</string>
+    <string name="err_unexpected">Neočekávaná chyba</string>
+    <string name="err_network">Síťová chyba — zkontroluj připojení.</string>
+    <string name="gemini_empty_reply">Model vrátil prázdnou odpověď.</string>
+    <string name="gemini_empty_with_reason">Model nevrátil text (důvod: %1$s).</string>
+    <string name="gemini_invalid_format">Neplatný formát odpovědi: %1$s</string>
+    <string name="gemini_network">Síťová chyba: %1$s</string>
+    <string name="gemini_http">HTTP %1$d</string>
+    <string name="gemini_overloaded">Model je přetížen.</string>
+    <string name="gemini_no_reply_after_retries">Model se neozval ani po několika pokusech (přetížení?). Zkus to za chvíli.</string>
+    <string name="gemini_key_blank">API klíč je prázdný. Zkontroluj ho v Nastavení.</string>
+    <string name="chat_stream_network">Síťová chyba během streamování: %1$s</string>
+    <string name="chat_empty_reply">Model vrátil prázdnou odpověď.</string>
+    <string name="chat_tool_rounds">Příliš mnoho kol volání nástrojů.</string>
+    <string name="chat_key_missing">Chybí API klíč. Zadej ho v Nastavení.</string>
+
+    <!-- Fact categories -->
+    <string name="fact_preference">Oblíbené</string>
+    <string name="fact_dislike">Neoblíbené</string>
+    <string name="fact_diet">Jídelníček</string>
+    <string name="fact_goal">Cíl</string>
+    <string name="fact_habit">Zvyk</string>
+    <string name="fact_health">Zdraví</string>
+    <string name="fact_other">Jiné</string>
+
+    <!-- Mensa ratings -->
+    <string name="rating_green">GREEN</string>
+    <string name="rating_yellow">YELLOW</string>
+    <string name="rating_red">RED</string>
+
+    <!-- Weekly summary request -->
+    <string name="summary_request_intro">Chci týdenní shrnutí. Tady jsou moje data za posledních 7 dní:</string>
+    <string name="summary_weights_none">Váha: žádná měření</string>
+    <string name="summary_foods_none">Jídla: žádné záznamy</string>
+    <string name="summary_workouts_none">Tréninky: žádné záznamy</string>
+    <string name="summary_ask">Vyhodnoť mi prosím tento týden: co dělám dobře, co zlepšit, a dej mi 3 konkrétní doporučení na další týden.</string>
+    <string name="summary_meals_header">Jídla (%1$d):</string>
+    <string name="summary_workouts_header">Tréninky (%1$d):</string>
+</resources>

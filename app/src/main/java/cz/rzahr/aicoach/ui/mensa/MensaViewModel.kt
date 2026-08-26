@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.MensaRepository
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -23,6 +25,7 @@ import kotlinx.coroutines.launch
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class MensaViewModel @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val mensaRepository: MensaRepository,
     private val foodRepository: FoodRepository
 ) : ViewModel() {
@@ -100,7 +103,7 @@ class MensaViewModel @Inject constructor(
                 source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_MANUAL
             )
             _loggedMealIds.value = _loggedMealIds.value + meal.id
-            _events.tryEmit("Zapsáno do deníku: ${meal.name}")
+            _events.tryEmit(context.getString(cz.rzahr.aicoach.R.string.mensa_logged_snackbar, meal.name))
         }
     }
 }

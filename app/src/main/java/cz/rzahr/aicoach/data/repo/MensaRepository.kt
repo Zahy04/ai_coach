@@ -1,5 +1,7 @@
 package cz.rzahr.aicoach.data.repo
 
+import android.content.Context
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.dao.MensaMealDao
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.mensa.MensaEstimator
@@ -17,6 +19,7 @@ data class MensaRefreshResult(
 
 @Singleton
 class MensaRepository @Inject constructor(
+    @dagger.hilt.android.qualifiers.ApplicationContext private val context: Context,
     private val scraper: MensaScraper,
     private val estimator: MensaEstimator,
     private val dao: MensaMealDao,
@@ -101,7 +104,7 @@ class MensaRepository @Inject constructor(
         return MensaRefreshResult(
             ok = anySuccess,
             estimateError = estimateError ?: if (scrapeError && !anySuccess) {
-                "Nepodařilo se načíst jídelníček ze stránek SUZ."
+                context.getString(R.string.mensa_scrape_failed)
             } else {
                 null
             }

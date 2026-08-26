@@ -146,12 +146,12 @@ class DashboardViewModel @Inject constructor(
         photoRepository.observeCount()
     ) { streak, weights, foods, photos ->
         listOf(
-            Badge("3 dny v řadě", streak >= 3),
-            Badge("7 dní v řadě", streak >= 7),
-            Badge("30 dní v řadě", streak >= 30),
-            Badge("10 vážení", weights.size >= 10),
-            Badge("50 jídel", foods.size >= 50),
-            Badge("20 fotek", photos >= 20)
+            Badge(Badge.ID_STREAK_3, streak >= 3),
+            Badge(Badge.ID_STREAK_7, streak >= 7),
+            Badge(Badge.ID_STREAK_30, streak >= 30),
+            Badge(Badge.ID_WEIGHINS_10, weights.size >= 10),
+            Badge(Badge.ID_FOODS_50, foods.size >= 50),
+            Badge(Badge.ID_PHOTOS_20, photos >= 20)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
@@ -171,6 +171,15 @@ class DashboardViewModel @Inject constructor(
 }
 
 data class Badge(
-    val label: String,
+    val id: String,
     val earned: Boolean
-)
+) {
+    companion object {
+        const val ID_STREAK_3 = "streak3"
+        const val ID_STREAK_7 = "streak7"
+        const val ID_STREAK_30 = "streak30"
+        const val ID_WEIGHINS_10 = "weighins10"
+        const val ID_FOODS_50 = "foods50"
+        const val ID_PHOTOS_20 = "photos20"
+    }
+}

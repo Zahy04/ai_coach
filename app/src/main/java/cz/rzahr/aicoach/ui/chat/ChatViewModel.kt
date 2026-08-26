@@ -156,32 +156,62 @@ class ChatViewModel @Inject constructor(
             val weights = weightRepository.latestAsc(20).filter { it.timestamp >= weekAgo }
             val dayFormatter = DateTimeFormatter.ofPattern("d. M.").withZone(ZoneId.systemDefault())
 
-            val message = buildString {
-                appendLine("Chci týdenní shrnutí. Tady jsou moje data za posledních 7 dní:")
-                if (weights.isNotEmpty()) {
-                    appendLine("Váha: " + weights.joinToString(", ") { "${it.timestamp.formatDate()}: ${it.weightKg} kg" })
-                } else {
-                    appendLine("Váha: žádná měření")
-                }
-                if (foods.isNotEmpty()) {
-                    appendLine("Jídla (${foods.size}):")
-                    foods.take(40).forEach { food ->
-                        val day = dayFormatter.format(Instant.ofEpochMilli(food.timestamp))
-                        appendLine("- $day ${food.name}" + (food.calories?.let { " ($it kcal)" } ?: ""))
+            val message = if (cz.rzahr.aicoach.util.Locales.isCzech()) {
+                buildString {
+                    appendLine("Chci týdenní shrnutí. Tady jsou moje data za posledních 7 dní:")
+                    if (weights.isNotEmpty()) {
+                        appendLine("Váha: " + weights.joinToString(", ") { "${it.timestamp.formatDate()}: ${it.weightKg} kg" })
+                    } else {
+                        appendLine("Váha: žádná měření")
                     }
-                } else {
-                    appendLine("Jídla: žádné záznamy")
-                }
-                if (workouts.isNotEmpty()) {
-                    appendLine("Tréninky (${workouts.size}):")
-                    workouts.forEach { workout ->
-                        val day = dayFormatter.format(Instant.ofEpochMilli(workout.timestamp))
-                        appendLine("- $day ${workout.name}" + (workout.durationMinutes?.let { " ($it min)" } ?: ""))
+                    if (foods.isNotEmpty()) {
+                        appendLine("Jídla (${foods.size}):")
+                        foods.take(40).forEach { food ->
+                            val day = dayFormatter.format(Instant.ofEpochMilli(food.timestamp))
+                            appendLine("- $day ${food.name}" + (food.calories?.let { " ($it kcal)" } ?: ""))
+                        }
+                    } else {
+                        appendLine("Jídla: žádné záznamy")
                     }
-                } else {
-                    appendLine("Tréninky: žádné záznamy")
+                    if (workouts.isNotEmpty()) {
+                        appendLine("Tréninky (${workouts.size}):")
+                        workouts.forEach { workout ->
+                            val day = dayFormatter.format(Instant.ofEpochMilli(workout.timestamp))
+                            appendLine("- $day ${workout.name}" + (workout.durationMinutes?.let { " ($it min)" } ?: ""))
+                        }
+                    } else {
+                        appendLine("Tréninky: žádné záznamy")
+                    }
+                    append("Vyhodnoť mi prosím tento týden: co dělám dobře, co zlepšit, a dej mi 3 konkrétní doporučení na další týden.")
                 }
-                append("Vyhodnoť mi prosím tento týden: co dělám dobře, co zlepšit, a dej mi 3 konkrétní doporučení na další týden.")
+            } else {
+                buildString {
+                    appendLine("I want a weekly summary. Here is my data from the last 7 days:")
+                    if (weights.isNotEmpty()) {
+                        appendLine("Weight: " + weights.joinToString(", ") { "${it.timestamp.formatDate()}: ${it.weightKg} kg" })
+                    } else {
+                        appendLine("Weight: no measurements")
+                    }
+                    if (foods.isNotEmpty()) {
+                        appendLine("Meals (${foods.size}):")
+                        foods.take(40).forEach { food ->
+                            val day = dayFormatter.format(Instant.ofEpochMilli(food.timestamp))
+                            appendLine("- $day ${food.name}" + (food.calories?.let { " ($it kcal)" } ?: ""))
+                        }
+                    } else {
+                        appendLine("Meals: no records")
+                    }
+                    if (workouts.isNotEmpty()) {
+                        appendLine("Workouts (${workouts.size}):")
+                        workouts.forEach { workout ->
+                            val day = dayFormatter.format(Instant.ofEpochMilli(workout.timestamp))
+                            appendLine("- $day ${workout.name}" + (workout.durationMinutes?.let { " ($it min)" } ?: ""))
+                        }
+                    } else {
+                        appendLine("Workouts: no records")
+                    }
+                    append("Please evaluate my week: what I'm doing well, what to improve, and give me 3 concrete recommendations for next week.")
+                }
             }
 
             chatRepository.addUserMessage(message)

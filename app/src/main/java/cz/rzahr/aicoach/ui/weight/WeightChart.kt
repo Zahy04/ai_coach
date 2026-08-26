@@ -39,6 +39,8 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cz.rzahr.aicoach.data.db.entity.WeightEntryEntity
+import androidx.compose.ui.res.stringResource
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.ui.theme.extendedColors
 import cz.rzahr.aicoach.util.TrendMath
 import cz.rzahr.aicoach.util.formatDate
@@ -57,7 +59,7 @@ fun WeightChart(
         Column(modifier.padding(vertical = 24.dp)) {
             Text("—", style = MaterialTheme.typography.headlineSmall)
             Text(
-                "Zatím žádné záznamy váhy.",
+                stringResource(R.string.weight_no_records),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -71,7 +73,7 @@ fun WeightChart(
                 style = MaterialTheme.typography.headlineSmall
             )
             Text(
-                "Pro graf jsou potřeba alespoň 2 měření.",
+                stringResource(R.string.weight_need_two),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -329,9 +331,9 @@ fun WeightChart(
                 .padding(top = 6.dp),
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            LegendItem(color = rawColor, label = "Měření", isDot = true)
-            LegendItem(color = trendColor, label = "Trend", isDot = false)
-            LegendItem(color = maColor, label = "7denní průměr", isDot = false)
+            LegendItem(color = rawColor, label = stringResource(R.string.legend_measurements), isDot = true)
+            LegendItem(color = trendColor, label = stringResource(R.string.legend_trend), isDot = false)
+            LegendItem(color = maColor, label = stringResource(R.string.legend_ma7), isDot = false)
         }
     }
 }

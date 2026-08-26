@@ -1,9 +1,9 @@
 package cz.rzahr.aicoach
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import cz.rzahr.aicoach.mensa.MensaAutoRefresher
 import cz.rzahr.aicoach.ui.navigation.AiCoachApp
@@ -13,7 +13,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
-class MainActivity : ComponentActivity() {
+class MainActivity : AppCompatActivity() {
 
     @Inject lateinit var mensaAutoRefresher: MensaAutoRefresher
 
