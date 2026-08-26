@@ -11,6 +11,7 @@ data class FoodEntryEntity(
     val proteinG: Double? = null,
     val carbsG: Double? = null,
     val fatG: Double? = null,
+    val grams: Int? = null,
     val timestamp: Long,
     val source: String = SOURCE_CHAT
 ) {

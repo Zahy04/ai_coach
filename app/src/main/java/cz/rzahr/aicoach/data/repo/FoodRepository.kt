@@ -27,8 +27,9 @@ class FoodRepository @Inject constructor(
         calories: Int?,
         proteinG: Double?,
         carbsG: Double?,
-        fatG: Double?
-    ) = dao.update(id, name, calories, proteinG, carbsG, fatG)
+        fatG: Double?,
+        grams: Int?
+    ) = dao.update(id, name, calories, proteinG, carbsG, fatG, grams)
 
     suspend fun add(
         name: String,
@@ -36,6 +37,7 @@ class FoodRepository @Inject constructor(
         proteinG: Double? = null,
         carbsG: Double? = null,
         fatG: Double? = null,
+        grams: Int? = null,
         timestamp: Long = System.currentTimeMillis(),
         source: String = FoodEntryEntity.SOURCE_CHAT
     ): Long = dao.insert(
@@ -45,6 +47,7 @@ class FoodRepository @Inject constructor(
             proteinG = proteinG,
             carbsG = carbsG,
             fatG = fatG,
+            grams = grams,
             timestamp = timestamp,
             source = source
         )

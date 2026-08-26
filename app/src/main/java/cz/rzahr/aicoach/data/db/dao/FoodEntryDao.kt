@@ -26,7 +26,7 @@ interface FoodEntryDao {
 
     @Query(
         "UPDATE food_entries SET name = :name, calories = :calories, proteinG = :proteinG, " +
-            "carbsG = :carbsG, fatG = :fatG WHERE id = :id"
+            "carbsG = :carbsG, fatG = :fatG, grams = :grams WHERE id = :id"
     )
     suspend fun update(
         id: Long,
@@ -34,7 +34,8 @@ interface FoodEntryDao {
         calories: Int?,
         proteinG: Double?,
         carbsG: Double?,
-        fatG: Double?
+        fatG: Double?,
+        grams: Int?
     )
 
     @Query("DELETE FROM food_entries WHERE id = :id")

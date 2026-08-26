@@ -115,6 +115,7 @@
     <string name="food_dialog_add_title">Přidat jídlo</string>
     <string name="food_dialog_edit_title">Upravit jídlo</string>
     <string name="food_name_label">Jídlo</string>
+    <string name="food_grams_label">Množství (g)</string>
     <string name="food_calories_label">Kalorie (kcal, nepovinné)</string>
     <string name="macro_protein_short">B %1$d g</string>
     <string name="macro_carbs_short">S %1$d g</string>

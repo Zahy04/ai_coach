@@ -32,7 +32,7 @@ import cz.rzahr.aicoach.data.db.entity.WorkoutEntryEntity
         WaterEntryEntity::class,
         MensaMealEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -87,6 +87,12 @@ abstract class AppDatabase : RoomDatabase() {
                         "fatG REAL, " +
                         "rating TEXT)"
                 )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE food_entries ADD COLUMN grams INTEGER DEFAULT NULL")
             }
         }
     }

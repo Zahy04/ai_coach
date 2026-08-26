@@ -116,6 +116,7 @@
     <string name="food_dialog_add_title">Add food</string>
     <string name="food_dialog_edit_title">Edit food</string>
     <string name="food_name_label">Food</string>
+    <string name="food_grams_label">Amount (g)</string>
     <string name="food_calories_label">Calories (kcal, optional)</string>
     <string name="macro_protein_short">P %1$d g</string>
     <string name="macro_carbs_short">C %1$d g</string>

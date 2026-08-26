@@ -129,6 +129,7 @@ class ToolExecutor @Inject constructor(
             proteinG = resolved.proteinG,
             carbsG = resolved.carbsG,
             fatG = resolved.fatG,
+            grams = resolved.refGrams?.toInt(),
             source = source
         )
 

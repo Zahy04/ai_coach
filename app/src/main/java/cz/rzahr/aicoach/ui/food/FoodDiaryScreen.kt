@@ -155,8 +155,8 @@ fun FoodDiaryScreen(
     if (showAddDialog) {
         AddFoodDialog(
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, calories, protein, carbs, fat ->
-                viewModel.add(name, calories, protein, carbs, fat)
+            onConfirm = { name, calories, protein, carbs, fat, grams ->
+                viewModel.add(name, calories, protein, carbs, fat, grams)
                 showAddDialog = false
             }
         )
@@ -166,8 +166,8 @@ fun FoodDiaryScreen(
         EditFoodDialog(
             initial = entry,
             onDismiss = { editEntry = null },
-            onSave = { name, calories, protein, carbs, fat ->
-                viewModel.update(entry.id, name, calories, protein, carbs, fat)
+            onSave = { name, calories, protein, carbs, fat, grams ->
+                viewModel.update(entry.id, name, calories, protein, carbs, fat, grams)
                 editEntry = null
             },
             onDelete = {
@@ -258,6 +258,7 @@ private fun FoodRow(
                 Text(
                     buildString {
                         append(entry.timestamp.formatTime())
+                        entry.grams?.let { append(" · $it g") }
                         entry.calories?.let { append(" · $it kcal") }
                     },
                     style = MaterialTheme.typography.bodySmall,
@@ -326,10 +327,11 @@ private fun MacroBar(
 private fun EditFoodDialog(
     initial: FoodEntryEntity,
     onDismiss: () -> Unit,
-    onSave: (String, Int?, Double?, Double?, Double?) -> Unit,
+    onSave: (String, Int?, Double?, Double?, Double?, Int?) -> Unit,
     onDelete: () -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf(initial.name) }
+    var grams by rememberSaveable { mutableStateOf(initial.grams?.toString().orEmpty()) }
     var calories by rememberSaveable { mutableStateOf(initial.calories?.toString().orEmpty()) }
     var protein by rememberSaveable { mutableStateOf(initial.proteinG?.let { trimNum(it) }.orEmpty()) }
     var carbs by rememberSaveable { mutableStateOf(initial.carbsG?.let { trimNum(it) }.orEmpty()) }
@@ -337,7 +339,7 @@ private fun EditFoodDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Upravit jídlo") },
+        title = { Text(stringResource(R.string.food_dialog_edit_title)) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -346,13 +348,24 @@ private fun EditFoodDialog(
                     label = { Text(stringResource(R.string.food_name_label)) },
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = calories,
-                    onValueChange = { calories = it },
-                    label = { Text(stringResource(R.string.food_calories_label)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = grams,
+                        onValueChange = { grams = it },
+                        label = { Text(stringResource(R.string.food_grams_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = calories,
+                        onValueChange = { calories = it },
+                        label = { Text(stringResource(R.string.food_calories_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = protein,
@@ -389,18 +402,19 @@ private fun EditFoodDialog(
                         calories.toIntOrNull(),
                         protein.replace(',', '.').toDoubleOrNull(),
                         carbs.replace(',', '.').toDoubleOrNull(),
-                        fat.replace(',', '.').toDoubleOrNull()
+                        fat.replace(',', '.').toDoubleOrNull(),
+                        grams.toIntOrNull()
                     )
                 },
                 enabled = name.isNotBlank()
-            ) { Text("Uložit") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             Row {
                 TextButton(onClick = onDelete) {
-                    Text("Smazat", color = MaterialTheme.colorScheme.error)
+                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
                 }
-                TextButton(onClick = onDismiss) { Text("Zrušit") }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
         }
     )
@@ -412,9 +426,10 @@ private fun trimNum(value: Double): String =
 @Composable
 private fun AddFoodDialog(
     onDismiss: () -> Unit,
-    onConfirm: (String, Int?, Double?, Double?, Double?) -> Unit
+    onConfirm: (String, Int?, Double?, Double?, Double?, Int?) -> Unit
 ) {
     var name by rememberSaveable { mutableStateOf("") }
+    var grams by rememberSaveable { mutableStateOf("") }
     var calories by rememberSaveable { mutableStateOf("") }
     var protein by rememberSaveable { mutableStateOf("") }
     var carbs by rememberSaveable { mutableStateOf("") }
@@ -431,13 +446,24 @@ private fun AddFoodDialog(
                     label = { Text(stringResource(R.string.food_name_label)) },
                     singleLine = true
                 )
-                OutlinedTextField(
-                    value = calories,
-                    onValueChange = { calories = it },
-                    label = { Text(stringResource(R.string.food_calories_label)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedTextField(
+                        value = grams,
+                        onValueChange = { grams = it },
+                        label = { Text(stringResource(R.string.food_grams_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                    OutlinedTextField(
+                        value = calories,
+                        onValueChange = { calories = it },
+                        label = { Text(stringResource(R.string.food_calories_label)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedTextField(
                         value = protein,
@@ -474,14 +500,15 @@ private fun AddFoodDialog(
                         calories.toIntOrNull(),
                         protein.replace(',', '.').toDoubleOrNull(),
                         carbs.replace(',', '.').toDoubleOrNull(),
-                        fat.replace(',', '.').toDoubleOrNull()
+                        fat.replace(',', '.').toDoubleOrNull(),
+                        grams.toIntOrNull()
                     )
                 },
                 enabled = name.isNotBlank()
-            ) { Text("Uložit") }
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Zrušit") }
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
         }
     )
 }

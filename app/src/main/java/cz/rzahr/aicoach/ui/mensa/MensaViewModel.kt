@@ -100,6 +100,7 @@ class MensaViewModel @Inject constructor(
                 proteinG = meal.proteinG,
                 carbsG = meal.carbsG,
                 fatG = meal.fatG,
+                grams = meal.grams,
                 source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_MANUAL
             )
             _loggedMealIds.value = _loggedMealIds.value + meal.id

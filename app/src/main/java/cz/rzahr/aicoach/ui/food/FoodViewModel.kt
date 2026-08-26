@@ -24,7 +24,7 @@ class FoodViewModel @Inject constructor(
     val calorieGoal: StateFlow<Int> = settingsRepository.dailyCalorieGoal
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2000)
 
-    fun add(name: String, calories: Int?, proteinG: Double?, carbsG: Double?, fatG: Double?) {
+    fun add(name: String, calories: Int?, proteinG: Double?, carbsG: Double?, fatG: Double?, grams: Int? = null) {
         viewModelScope.launch {
             foodRepository.add(
                 name = name,
@@ -32,14 +32,15 @@ class FoodViewModel @Inject constructor(
                 proteinG = proteinG,
                 carbsG = carbsG,
                 fatG = fatG,
+                grams = grams,
                 source = FoodEntryEntity.SOURCE_MANUAL
             )
         }
     }
 
-    fun update(id: Long, name: String, calories: Int?, proteinG: Double?, carbsG: Double?, fatG: Double?) {
+    fun update(id: Long, name: String, calories: Int?, proteinG: Double?, carbsG: Double?, fatG: Double?, grams: Int? = null) {
         viewModelScope.launch {
-            foodRepository.update(id, name, calories, proteinG, carbsG, fatG)
+            foodRepository.update(id, name, calories, proteinG, carbsG, fatG, grams)
         }
     }
 
