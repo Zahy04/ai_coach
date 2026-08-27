@@ -69,6 +69,26 @@ class ToolExecutor @Inject constructor(
         val weightKg = call.args?.get("weight_kg")?.jsonPrimitive?.doubleOrNull
             ?: return missingParam("weight_kg")
         val note = call.args?.get("note")?.jsonPrimitive?.contentOrNull()
+
+        // deduplikace: pokud je dnes už zapsaná úplně stejná váha, odmítneme
+        val latest = weightRepository.latestAsc(1).lastOrNull()
+        if (latest != null) {
+            val today = java.time.LocalDate.now()
+            val entryDate = java.time.Instant.ofEpochMilli(latest.timestamp)
+                .atZone(java.time.ZoneId.systemDefault())
+                .toLocalDate()
+            if (entryDate == today && latest.weightKg == weightKg) {
+                val formatted = String.format(Locale.forLanguageTag("cs"), "%.1f", latest.weightKg)
+                return ToolExecutionResult(
+                    null,
+                    buildJsonObject {
+                        put("status", "already_logged")
+                        put("message", "Dnešní váha už je zapsaná ($formatted kg). Pokud se opravdu změnila, napiš ji znovu výslovně.")
+                    }
+                )
+            }
+        }
+
         weightRepository.add(weightKg, note)
         val formatted = String.format(Locale.forLanguageTag("cs"), "%.1f", weightKg)
         return ToolExecutionResult(
@@ -120,6 +140,23 @@ class ToolExecutor @Inject constructor(
                 carbsG = call.args?.get("carbs_g")?.jsonPrimitive?.doubleOrNull,
                 fatG = call.args?.get("fat_g")?.jsonPrimitive?.doubleOrNull,
                 refGrams = quantityG
+            )
+        }
+
+        // cross-message dedup: stejné jídlo se stejnými kaloriemi během posledních 30 min
+        val thirtyMinAgo = System.currentTimeMillis() - 30 * 60 * 1000
+        val recent = foodRepository.since(thirtyMinAgo)
+        val isDuplicate = recent.any { entry ->
+            entry.name.trim().lowercase() == dedupeKey &&
+                entry.calories == resolved.calories
+        }
+        if (isDuplicate) {
+            return ToolExecutionResult(
+                null,
+                buildJsonObject {
+                    put("status", "already_logged")
+                    put("message", context.getString(R.string.ev_already_logged))
+                }
             )
         }
 

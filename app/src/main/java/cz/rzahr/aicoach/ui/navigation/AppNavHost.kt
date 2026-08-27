@@ -35,7 +35,9 @@ import cz.rzahr.aicoach.ui.food.FoodDiaryScreen
 import cz.rzahr.aicoach.ui.mensa.MensaScreen
 import cz.rzahr.aicoach.ui.photos.PhotoCompareScreen
 import cz.rzahr.aicoach.ui.photos.PhotoDetailScreen
+import cz.rzahr.aicoach.ui.photos.PhotosFolderScreen
 import cz.rzahr.aicoach.ui.photos.PhotosScreen
+import cz.rzahr.aicoach.ui.photos.PhotosSlideshowScreen
 import cz.rzahr.aicoach.ui.settings.SettingsScreen
 import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.ui.weight.WeightScreen
@@ -50,10 +52,14 @@ object Routes {
     const val SETTINGS = "settings"
     const val PHOTO_DETAIL = "photo_detail/{photoId}"
     const val PHOTO_COMPARE = "photo_compare/{firstId}/{secondId}"
+    const val PHOTO_FOLDER = "photos_folder/{pose}"
+    const val PHOTO_SLIDESHOW = "photos_slideshow/{pose}"
     const val MENSA = "mensa"
 
     fun photoDetail(photoId: Long) = "photo_detail/$photoId"
     fun photoCompare(firstId: Long, secondId: Long) = "photo_compare/$firstId/$secondId"
+    fun photoFolder(pose: String) = "photos_folder/$pose"
+    fun photoSlideshow(pose: String) = "photos_slideshow/$pose"
 }
 
 private data class BottomTab(
@@ -151,9 +157,27 @@ fun AiCoachApp() {
             }
             composable(Routes.PHOTOS) {
                 PhotosScreen(
-                    onOpenDetail = { navController.navigate(Routes.photoDetail(it)) },
-                    onOpenCompare = { first, second -> navController.navigate(Routes.photoCompare(first, second)) }
+                    onOpenFolder = { navController.navigate(Routes.photoFolder(it)) }
                 )
+            }
+            composable(
+                route = Routes.PHOTO_FOLDER,
+                arguments = listOf(navArgument("pose") { type = NavType.StringType })
+            ) { entry ->
+                val pose = entry.arguments?.getString("pose") ?: ""
+                PhotosFolderScreen(
+                    onBack = { navController.popBackStack() },
+                    onOpenDetail = { navController.navigate(Routes.photoDetail(it)) },
+                    onOpenCompare = { first, second -> navController.navigate(Routes.photoCompare(first, second)) },
+                    onOpenSlideshow = { navController.navigate(Routes.photoSlideshow(pose)) }
+                )
+            }
+            composable(
+                route = Routes.PHOTO_SLIDESHOW,
+                arguments = listOf(navArgument("pose") { type = NavType.StringType })
+            ) { entry ->
+                val pose = entry.arguments?.getString("pose") ?: ""
+                PhotosSlideshowScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.SETTINGS) {
                 SettingsScreen(onBack = { navController.popBackStack() })

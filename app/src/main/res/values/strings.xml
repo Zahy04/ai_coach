@@ -11,6 +11,26 @@
     <string name="settings_title">Settings</string>
 
     <!-- Common -->
+    <string name="photos_empty_title">No folders yet</string>
+    <string name="photos_empty_desc">Open the + button to create a folder, or add photos inside a folder.</string>
+    <string name="photos_folder_create">Create folder</string>
+    <string name="photos_folder_name">Folder name</string>
+    <string name="photos_add">Add photos</string>
+    <string name="photos_imported">+%1$s imported</string>
+    <string name="photos_move_to">Move to…</string>
+    <string name="photos_select_mode">Select</string>
+    <string name="photos_select_done">Done selecting</string>
+    <string name="photos_folder_empty">This folder is empty. Add photos or move them here.</string>
+    <string name="slideshow_title">Slideshow</string>
+    <string name="slideshow_pause">Pause</string>
+    <string name="slideshow_play">Play</string>
+    <string name="pose_front_double_biceps">Front double biceps</string>
+    <string name="pose_back_double_biceps">Back double biceps</string>
+    <string name="pose_side_triceps">Side triceps</string>
+    <string name="pose_most_muscular">Most muscular</string>
+    <string name="pose_overhead_triceps">Overhead triceps</string>
+    <string name="pose_zyzz">Zyzz pose</string>
+    <string name="pose_other">Other</string>
     <string name="day_today">Today</string>
     <string name="day_yesterday">Yesterday</string>
     <string name="back">Back</string>

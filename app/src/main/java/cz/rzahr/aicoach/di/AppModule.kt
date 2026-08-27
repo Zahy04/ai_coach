@@ -32,7 +32,8 @@ object AppModule {
                 AppDatabase.MIGRATION_2_3,
                 AppDatabase.MIGRATION_3_4,
                 AppDatabase.MIGRATION_4_5,
-                AppDatabase.MIGRATION_5_6
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7
             )
             .build()
 
@@ -59,6 +60,9 @@ object AppModule {
 
     @Provides
     fun provideMensaMealDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.MensaMealDao = db.mensaMealDao()
+
+    @Provides
+    fun providePoseFolderDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.PoseFolderDao = db.poseFolderDao()
 
     @Provides
     @Singleton

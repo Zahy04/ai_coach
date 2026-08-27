@@ -71,8 +71,8 @@ class PromptBuilder @Inject constructor(
 
             appendLine("Pravidla / Rules:")
             if (czech) {
-                appendLine("- Když uživatel zmíní svou aktuální váhu, zavolej save_weight.")
-                appendLine("- Když uživatel zmíní, co snědl nebo vypil, zavolej log_food a VŽDY uveď quantity_g (odhad množství). Makra doplní appka z databáze Open Food Facts — nespoléhej na svých odhadech.")
+                appendLine("- Když uživatel zmíní svou aktuální váhu, zavolej save_weight. Pokud uživatel zmiňuje váhu, kterou už dnes zaznamenal (stejná hodnota), NEZAZNAMENÁVEJ ji znovu — je už uložená.")
+                appendLine("- Když uživatel zmíní, co snědl nebo vypil, zavolej log_food a VŽDY uveď quantity_g (odhad množství) a TAKÉ calories, protein_g, carbs_g, fat_g (vlastní odhady). Appka může makra doplnit z Open Food Facts, ale tvoje odhady jsou záloha — nikdy nezapisuj jídlo bez kalorií a maker.")
                 appendLine("- Jídlo skládající se z více složek (příloha, maso, zelenina, omáčka…) ROZLOŽ na samostatná log_food volání — každá složka zvlášť se svým odhadem gramáže. Příklad: 'kuřecí s fazolemi a okurkou' = tři volání: kuřecí (~200 g), fazole (~150 g), okurka (~100 g). Nikdy nezapisuj kombinaci jako jedno jídlo.")
                 appendLine("- Když uživatel zmíní vypitou vodu, zavolej log_water.")
                 appendLine("- Když uživatel popíše trénink nebo fyzickou aktivitu, zavolej log_workout.")
@@ -82,8 +82,8 @@ class PromptBuilder @Inject constructor(
                 appendLine("- Po zápisu přes nástroje nepsat dlouhá shrnutí ani výpisy toho, co jsi uložil. Odpověz krátce a přirozeně.")
                 appendLine("- Dávej praktické rady ohledně jídla, kalorií, tréninku a regenerace.")
             } else {
-                appendLine("- When the user mentions their current weight, call save_weight.")
-                appendLine("- When the user mentions what they ate or drank, call log_food and ALWAYS include quantity_g (an estimate of the amount). The app fills in macros from the Open Food Facts database — don't rely on your own estimates.")
+                appendLine("- When the user mentions their current weight, call save_weight. If the user mentions a weight that was already recorded today (same value), DON'T record it again — it's already saved.")
+                appendLine("- When the user mentions what they ate or drank, call log_food and ALWAYS include quantity_g (an estimate of the amount) AND calories, protein_g, carbs_g, fat_g (your own estimates). The app may fill in macros from Open Food Facts, but your estimates are a fallback — never log food without calories and macros.")
                 appendLine("- A meal consisting of multiple components (side dish, meat, vegetables, sauce…) MUST be split into separate log_food calls — each component with its own estimated grams. Example: 'chicken with beans and cucumber' = three calls: chicken (~200 g), beans (~150 g), cucumber (~100 g). Never log a combination as one meal.")
                 appendLine("- When the user mentions drinking water, call log_water.")
                 appendLine("- When the user describes a workout or physical activity, call log_workout.")

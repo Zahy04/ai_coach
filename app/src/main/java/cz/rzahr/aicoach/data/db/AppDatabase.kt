@@ -8,6 +8,7 @@ import cz.rzahr.aicoach.data.db.dao.ChatMessageDao
 import cz.rzahr.aicoach.data.db.dao.FactDao
 import cz.rzahr.aicoach.data.db.dao.FoodEntryDao
 import cz.rzahr.aicoach.data.db.dao.MensaMealDao
+import cz.rzahr.aicoach.data.db.dao.PoseFolderDao
 import cz.rzahr.aicoach.data.db.dao.ProgressPhotoDao
 import cz.rzahr.aicoach.data.db.dao.WaterEntryDao
 import cz.rzahr.aicoach.data.db.dao.WeightEntryDao
@@ -16,6 +17,7 @@ import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
 import cz.rzahr.aicoach.data.db.entity.FactEntity
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
+import cz.rzahr.aicoach.data.db.entity.PoseFolderEntity
 import cz.rzahr.aicoach.data.db.entity.ProgressPhotoEntity
 import cz.rzahr.aicoach.data.db.entity.WaterEntryEntity
 import cz.rzahr.aicoach.data.db.entity.WeightEntryEntity
@@ -30,9 +32,10 @@ import cz.rzahr.aicoach.data.db.entity.WorkoutEntryEntity
         FactEntity::class,
         ProgressPhotoEntity::class,
         WaterEntryEntity::class,
-        MensaMealEntity::class
+        MensaMealEntity::class,
+        PoseFolderEntity::class
     ],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -44,6 +47,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun progressPhotoDao(): ProgressPhotoDao
     abstract fun waterEntryDao(): WaterEntryDao
     abstract fun mensaMealDao(): MensaMealDao
+    abstract fun poseFolderDao(): PoseFolderDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -93,6 +97,15 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_5_6 = object : Migration(5, 6) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE food_entries ADD COLUMN grams INTEGER DEFAULT NULL")
+            }
+        }
+
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE progress_photos ADD COLUMN pose TEXT NOT NULL DEFAULT 'other'")
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS pose_folders (name TEXT PRIMARY KEY NOT NULL)"
+                )
             }
         }
     }

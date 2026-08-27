@@ -12,6 +12,15 @@ interface ProgressPhotoDao {
     @Query("SELECT * FROM progress_photos ORDER BY timestamp DESC, id DESC")
     fun observeAllDesc(): Flow<List<ProgressPhotoEntity>>
 
+    @Query("SELECT * FROM progress_photos WHERE pose = :pose ORDER BY timestamp DESC, id DESC")
+    fun observeByPose(pose: String): Flow<List<ProgressPhotoEntity>>
+
+    @Query("SELECT DISTINCT pose FROM progress_photos")
+    fun observeDistinctPoses(): Flow<List<String>>
+
+    @Query("UPDATE progress_photos SET pose = :pose WHERE id = :id")
+    suspend fun updatePose(id: Long, pose: String)
+
     @Query("SELECT COUNT(*) FROM progress_photos")
     fun observeCount(): Flow<Int>
 

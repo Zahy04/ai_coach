@@ -11,6 +11,26 @@
     <string name="settings_title">Nastavení</string>
 
     <!-- Common -->
+    <string name="photos_empty_title">Zatím žádné složky</string>
+    <string name="photos_empty_desc">Tlačítkem + vytvoř složku, fotky přidáš uvnitř složky.</string>
+    <string name="photos_folder_create">Vytvořit složku</string>
+    <string name="photos_folder_name">Název složky</string>
+    <string name="photos_add">Přidat fotky</string>
+    <string name="photos_imported">+%1$s přidáno</string>
+    <string name="photos_move_to">Přesunout do…</string>
+    <string name="photos_select_mode">Vybrat</string>
+    <string name="photos_select_done">Hotovo</string>
+    <string name="photos_folder_empty">Tato složka je prázdná. Přidej fotky nebo je sem přesuň.</string>
+    <string name="slideshow_title">Prezentace</string>
+    <string name="slideshow_pause">Pauza</string>
+    <string name="slideshow_play">Přehrát</string>
+    <string name="pose_front_double_biceps">Přední dvojitý biceps</string>
+    <string name="pose_back_double_biceps">Zadní dvojitý biceps</string>
+    <string name="pose_side_triceps">Triceps z boku</string>
+    <string name="pose_most_muscular">Most muscular</string>
+    <string name="pose_overhead_triceps">Triceps za hlavou</string>
+    <string name="pose_zyzz">Zyzz póza</string>
+    <string name="pose_other">Ostatní</string>
     <string name="day_today">Dnes</string>
     <string name="day_yesterday">Včera</string>
     <string name="back">Zpět</string>
