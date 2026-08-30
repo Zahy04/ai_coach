@@ -245,6 +245,13 @@
     <string name="ev_fact_updated">Poznámka aktualizována: %1$s</string>
     <string name="ev_fact_deleted">Poznámka #%1$d smazána.</string>
     <string name="ev_already_logged">Toto jídlo už bylo v této zprávě zaznamenáno, neukládej ho znovu.</string>
+    <string name="ev_duplicate_suspected">Ještě neukládej: uživatel už podobné jídlo zapsal v %1$s (%2$s kcal). Zeptej se ho, jestli má být stejné jídlo opravdu zapsáno znovu. Pouze pokud výslovně potvrdí, zavolej log_food se stejnými údaji a force=true.</string>
+    <string name="err_food_time_without_date">Parametr time lze použít jen spolu s parametrem date.</string>
+    <string name="err_food_bad_datetime">Neplatný formát datumu/času — očekává se yyyy-MM-dd a HH:mm.</string>
+    <string name="err_food_future">Jídlo nelze zapsat do budoucna.</string>
+    <string name="err_food_too_old">Jídlo starší než 7 dní nelze zapsat.</string>
+    <string name="food_delete_otherday_title">Smazat jídlo z jiného dne?</string>
+    <string name="food_delete_otherday_text">Opravdu chceš smazat „%1$s“ (%2$s) z %3$s?</string>
     <string name="err_missing_param">Chybí povinný parametr %1$s.</string>
     <string name="err_unknown_tool">Neznámý nástroj: %1$s</string>
     <string name="err_unexpected">Neočekávaná chyba</string>

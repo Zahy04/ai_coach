@@ -2,16 +2,19 @@ package cz.rzahr.aicoach.llm
 
 import android.content.Context
 import cz.rzahr.aicoach.R
+import cz.rzahr.aicoach.util.formatDateTime
 import cz.rzahr.aicoach.data.repo.FactRepository
 import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
@@ -101,9 +104,50 @@ class ToolExecutor @Inject constructor(
         val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
             ?: return missingParam("name")
         val quantityG = call.args?.get("quantity_g")?.jsonPrimitive?.doubleOrNull
+        val force = call.args?.get("force")?.jsonPrimitive?.booleanOrNull == true
+
+        // volitelné date/time — pouze na výslovnou žádost uživatele, jinak "teď"
+        val dateArg = call.args?.get("date")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
+        val timeArg = call.args?.get("time")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
+        val zone = java.time.ZoneId.systemDefault()
+        val now = java.time.ZonedDateTime.now(zone)
+        val targetTs: Long = try {
+            when {
+                dateArg == null && timeArg == null -> System.currentTimeMillis()
+                dateArg != null && timeArg == null ->
+                    java.time.LocalDate.parse(dateArg).atTime(now.toLocalTime()).atZone(zone).toInstant().toEpochMilli()
+                dateArg != null ->
+                    java.time.LocalDate.parse(dateArg)
+                        .atTime(java.time.LocalTime.parse(timeArg, HHMM))
+                        .atZone(zone).toInstant().toEpochMilli()
+                else -> return ToolExecutionResult(
+                    null,
+                    ToolSpecs.errorResult(context.getString(R.string.err_food_time_without_date))
+                )
+            }
+        } catch (e: Exception) {
+            return ToolExecutionResult(
+                null,
+                ToolSpecs.errorResult(context.getString(R.string.err_food_bad_datetime))
+            )
+        }
+        val nowMillis = System.currentTimeMillis()
+        if (targetTs > nowMillis + FUTURE_TOLERANCE_MS) {
+            return ToolExecutionResult(
+                null,
+                ToolSpecs.errorResult(context.getString(R.string.err_food_future))
+            )
+        }
+        if (targetTs < nowMillis - MAX_PAST_MS) {
+            return ToolExecutionResult(
+                null,
+                ToolSpecs.errorResult(context.getString(R.string.err_food_too_old))
+            )
+        }
 
         val dedupeKey = name.trim().lowercase()
-        if (dedupeKey in turnContext.loggedFoods) {
+        val turnKey = dedupeKey + "|" + java.time.Instant.ofEpochMilli(targetTs).atZone(zone).toLocalDate()
+        if (!force && turnKey in turnContext.loggedFoods) {
             return ToolExecutionResult(
                 null,
                 buildJsonObject {
@@ -112,7 +156,30 @@ class ToolExecutor @Inject constructor(
                 }
             )
         }
-        turnContext.loggedFoods.add(dedupeKey)
+        turnContext.loggedFoods.add(turnKey)
+
+        // cross-message detekce duplicity: podobný název do 2 h od zapisovaného času
+        if (!force) {
+            val recent = foodRepository.since(targetTs - DUPLICATE_WINDOW_MS)
+            val dup = recent.firstOrNull { entry ->
+                val n = entry.name.trim().lowercase()
+                (n == dedupeKey || n.contains(dedupeKey) || dedupeKey.contains(n)) &&
+                    kotlin.math.abs(entry.timestamp - targetTs) <= DUPLICATE_WINDOW_MS
+            }
+            if (dup != null) {
+                val timeStr = dup.timestamp.formatDateTime()
+                val kcalStr = dup.calories?.toString() ?: "?"
+                return ToolExecutionResult(
+                    null,
+                    buildJsonObject {
+                        put("status", "duplicate_suspected")
+                        put("already_logged_at", timeStr)
+                        put("already_logged_kcal", kcalStr)
+                        put("message", context.getString(R.string.ev_duplicate_suspected, timeStr, kcalStr))
+                    }
+                )
+            }
+        }
 
         // 1) Open Food Facts → 2) odhad modelu
         var sourceLabel = context.getString(R.string.ev_source_estimate)
@@ -143,23 +210,6 @@ class ToolExecutor @Inject constructor(
             )
         }
 
-        // cross-message dedup: stejné jídlo se stejnými kaloriemi během posledních 30 min
-        val thirtyMinAgo = System.currentTimeMillis() - 30 * 60 * 1000
-        val recent = foodRepository.since(thirtyMinAgo)
-        val isDuplicate = recent.any { entry ->
-            entry.name.trim().lowercase() == dedupeKey &&
-                entry.calories == resolved.calories
-        }
-        if (isDuplicate) {
-            return ToolExecutionResult(
-                null,
-                buildJsonObject {
-                    put("status", "already_logged")
-                    put("message", context.getString(R.string.ev_already_logged))
-                }
-            )
-        }
-
         foodRepository.add(
             name = name,
             calories = resolved.calories,
@@ -167,6 +217,7 @@ class ToolExecutor @Inject constructor(
             carbsG = resolved.carbsG,
             fatG = resolved.fatG,
             grams = resolved.refGrams?.toInt(),
+            timestamp = targetTs,
             source = source
         )
 
@@ -186,6 +237,11 @@ class ToolExecutor @Inject constructor(
 
         return ToolExecutionResult(event, buildJsonObject {
             put("status", "ok")
+            put(
+                "logged_at",
+                java.time.Instant.ofEpochMilli(targetTs).atZone(zone)
+                    .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
+            )
             put("source", sourceLabel)
             put("quantity_grams", quantityG ?: 100.0)
             resolved.calories?.let { put("calories", it) }
@@ -260,4 +316,11 @@ class ToolExecutor @Inject constructor(
 
     private fun kotlinx.serialization.json.JsonPrimitive.contentOrNull(): String? =
         if (this is kotlinx.serialization.json.JsonNull) null else content
+
+    companion object {
+        private const val DUPLICATE_WINDOW_MS = 2 * 60 * 60 * 1000L
+        private const val FUTURE_TOLERANCE_MS = 5 * 60 * 1000L
+        private const val MAX_PAST_MS = 7L * 24 * 60 * 60 * 1000
+        private val HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
+    }
 }

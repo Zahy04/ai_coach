@@ -36,7 +36,9 @@ object ToolSpecs {
         ),
         FunctionDeclaration(
             name = LOG_FOOD,
-            description = "Zaznamená jídlo nebo nápoj, který uživatel snědl či vypil. Kalorie a makra odhadni podle běžných hodnot, pokud je uživatel neuvede.",
+            description = "Zaznamená jídlo nebo nápoj, který uživatel snědl či vypil. Kalorie a makra odhadni podle běžných hodnot, pokud je uživatel neuvede. " +
+                "Pokud nástroj vrátí status duplicate_suspected, NEZAPISUJ jídlo znovu, dokud se uživatel výslovně nepotvrdí; poté zavolej log_food se stejnými údaji a force=true. " +
+                "Parametry date a time vynech (jídlo se pak zapíše na dnešek a aktuální čas) — vyplň je POUZE na výslovnou žádost uživatele, že jídlo patřilo jinam (např. 'včera ráno').",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -63,6 +65,18 @@ object ToolSpecs {
                     putJsonObject("fat_g") {
                         put("type", "number")
                         put("description", "Odhad tuků v gramech")
+                    }
+                    putJsonObject("date") {
+                        put("type", "string")
+                        put("description", "Datum ve formátu yyyy-MM-dd, POUZE když uživatel výslovně řekne, že jedl jindy než dnes. Max. 7 dní dozadu, budoucnost zamítnuta.")
+                    }
+                    putJsonObject("time") {
+                        put("type", "string")
+                        put("description", "Čas ve formátu HH:mm, pouze spolu s date. Bez obou parametrů se použije aktuální čas.")
+                    }
+                    putJsonObject("force") {
+                        put("type", "boolean")
+                        put("description", "true pouze tehdy, když uživatel VÝSLOVNĚ potvrdil, že má jídlo zapsat znovu přesto, že na něj nástroj upozornil jako na duplicitu.")
                     }
                 }
                 putJsonArray("required") { add(kotlinx.serialization.json.JsonPrimitive("name")) }

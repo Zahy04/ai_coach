@@ -246,6 +246,13 @@
     <string name="ev_fact_updated">Note updated: %1$s</string>
     <string name="ev_fact_deleted">Note #%1$d deleted.</string>
     <string name="ev_already_logged">This meal has already been logged in this message, don\'t log it again.</string>
+    <string name="ev_duplicate_suspected">Do not save yet: the user already logged a similar meal at %1$s (%2$s kcal). Ask the user whether they really want to log the same meal again. Only if they explicitly confirm, call log_food again with the same data and force=true.</string>
+    <string name="err_food_time_without_date">Parameter time can only be used together with date.</string>
+    <string name="err_food_bad_datetime">Invalid date/time format — expected yyyy-MM-dd and HH:mm.</string>
+    <string name="err_food_future">Cannot log food in the future.</string>
+    <string name="err_food_too_old">Cannot log food older than 7 days.</string>
+    <string name="food_delete_otherday_title">Delete meal from another day?</string>
+    <string name="food_delete_otherday_text">Do you really want to delete \"%1$s\" (%2$s) from %3$s?</string>
     <string name="err_missing_param">Missing required parameter %1$s.</string>
     <string name="err_unknown_tool">Unknown tool: %1$s</string>
     <string name="err_unexpected">Unexpected error</string>

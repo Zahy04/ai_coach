@@ -68,6 +68,16 @@ fun FoodDiaryScreen(
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
     var showAddDialog by remember { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<FoodEntryEntity?>(null) }
+    var pendingDelete by remember { mutableStateOf<FoodEntryEntity?>(null) }
+
+    // jídlo z jiného dne se nesmí mazat bez confirmace
+    val requestDelete: (FoodEntryEntity) -> Unit = { entry ->
+        if (entry.timestamp.toLocalDate() == java.time.LocalDate.now()) {
+            viewModel.delete(entry.id)
+        } else {
+            pendingDelete = entry
+        }
+    }
 
     val grouped = remember(entries) {
         entries.groupBy { it.timestamp.toLocalDate() }.toList()
@@ -141,7 +151,7 @@ fun FoodDiaryScreen(
                                     dayHeader = capitalize(day.formatDayHeader()),
                                     // records label resolved inside DayCard
                                     calorieGoal = calorieGoal,
-                                    onDeleteEntry = { viewModel.delete(it) },
+                                    onDeleteEntry = requestDelete,
                                     onEditEntry = { editEntry = it }
                                 )
                             }
@@ -171,8 +181,39 @@ fun FoodDiaryScreen(
                 editEntry = null
             },
             onDelete = {
-                viewModel.delete(entry.id)
                 editEntry = null
+                requestDelete(entry)
+            }
+        )
+    }
+
+    pendingDelete?.let { entry ->
+        val details = buildString {
+            append(entry.timestamp.formatTime())
+            entry.calories?.let { append(" · $it kcal") }
+        }
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text(stringResource(R.string.food_delete_otherday_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        R.string.food_delete_otherday_text,
+                        entry.name,
+                        details,
+                        capitalize(entry.timestamp.formatDayHeader())
+                    )
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { viewModel.delete(entry.id); pendingDelete = null }) {
+                    Text(stringResource(R.string.delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text(stringResource(R.string.cancel))
+                }
             }
         )
     }
@@ -186,7 +227,7 @@ private fun DayCard(
     dayEntries: List<FoodEntryEntity>,
     dayHeader: String,
     calorieGoal: Int,
-    onDeleteEntry: (Long) -> Unit,
+    onDeleteEntry: (FoodEntryEntity) -> Unit,
     onEditEntry: (FoodEntryEntity) -> Unit
 ) {
     val ext = extendedColors()
@@ -222,7 +263,7 @@ private fun DayCard(
             dayEntries.forEachIndexed { index, entry ->
                 FoodRow(
                     entry = entry,
-                    onDelete = { onDeleteEntry(entry.id) },
+                    onDelete = { onDeleteEntry(entry) },
                     onEdit = { onEditEntry(entry) }
                 )
                 if (index < dayEntries.size - 1) {
