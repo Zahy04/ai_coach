@@ -8,6 +8,7 @@ data class GenerateContentRequest(
     val systemInstruction: Content? = null,
     val contents: List<Content>,
     val tools: List<Tools>? = null,
+    val toolConfig: ToolConfig? = null,
     val generationConfig: GenerationConfig? = null
 )
 
@@ -58,6 +59,16 @@ data class FunctionResponse(
 @Serializable
 data class Tools(
     val functionDeclarations: List<FunctionDeclaration>
+)
+
+@Serializable
+data class ToolConfig(
+    val functionCallingConfig: FunctionCallingConfig
+)
+
+@Serializable
+data class FunctionCallingConfig(
+    val mode: String
 )
 
 @Serializable

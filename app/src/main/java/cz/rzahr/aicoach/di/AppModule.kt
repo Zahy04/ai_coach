@@ -66,7 +66,14 @@ object AppModule {
 
     @Provides
     @Singleton
-    fun provideJson(): Json = Json { ignoreUnknownKeys = true }
+    fun provideJson(): Json = Json {
+        ignoreUnknownKeys = true
+        // Nutné pro Gemini API: vynechat null pole (Part.text, Part.functionCall, ...).
+        // S explicitNulls=true by request obsahoval "text":null apod. a API pak
+        // tiše ignoruje tools / vrací chyby – model následně simuluje tooly textem.
+        explicitNulls = false
+        encodeDefaults = true
+    }
 
     @Provides
     @Singleton

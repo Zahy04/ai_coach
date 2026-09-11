@@ -18,7 +18,7 @@ object ToolSpecs {
     val declarations = listOf(
         FunctionDeclaration(
             name = SAVE_WEIGHT,
-            description = "Uloží aktuální tělesnou hmotnost uživatele v kilogramech. Volá se, když uživatel zmíní svou váhu.",
+            description = "Uloží aktuální tělesnou hmotnost uživatele v kilogramech. Volá se, když uživatel zmíní svou váhu.$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -38,7 +38,7 @@ object ToolSpecs {
             name = LOG_FOOD,
             description = "Zaznamená jídlo nebo nápoj, který uživatel snědl či vypil. Kalorie a makra odhadni podle běžných hodnot, pokud je uživatel neuvede. " +
                 "Pokud nástroj vrátí status duplicate_suspected, NEZAPISUJ jídlo znovu, dokud se uživatel výslovně nepotvrdí; poté zavolej log_food se stejnými údaji a force=true. " +
-                "Parametry date a time vynech (jídlo se pak zapíše na dnešek a aktuální čas) — vyplň je POUZE na výslovnou žádost uživatele, že jídlo patřilo jinam (např. 'včera ráno').",
+                "Parametry date a time vynech (jídlo se pak zapíše na dnešek a aktuální čas) — vyplň je POUZE na výslovnou žádost uživatele, že jídlo patřilo jinam (např. 'včera ráno').$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -84,7 +84,7 @@ object ToolSpecs {
         ),
         FunctionDeclaration(
             name = LOG_WORKOUT,
-            description = "Zaznamená trénink nebo fyzickou aktivitu, kterou uživatel vykonal.",
+            description = "Zaznamená trénink nebo fyzickou aktivitu, kterou uživatel vykonal.$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -110,7 +110,7 @@ object ToolSpecs {
         ),
         FunctionDeclaration(
             name = LOG_WATER,
-            description = "Zaznamená vypitou vodu. Volá se, když uživatel zmíní, že pil vodu.",
+            description = "Zaznamená vypitou vodu. Volá se, když uživatel zmíní, že pil vodu.$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -123,7 +123,7 @@ object ToolSpecs {
         ),
         FunctionDeclaration(
             name = SAVE_FACT,
-            description = "Uloží trvalou informaci o uživateli: oblíbená/neoblíbená jídla, cíle, zvyky, jídelníček, zdravotní omezení apod. Pokud aktualizuješ existující informaci, uveď její id v parametru fact_id.",
+            description = "Uloží trvalou informaci o uživateli: oblíbená/neoblíbená jídla, cíle, zvyky, jídelníček, zdravotní omezení apod. Pokud aktualizuješ existující informaci, uveď její id v parametru fact_id.$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -157,7 +157,7 @@ object ToolSpecs {
         ),
         FunctionDeclaration(
             name = DELETE_FACT,
-            description = "Smaže uloženou informaci o uživateli podle id. Použij, když uživatel řekne, že nějaká informace už neplatí.",
+            description = "Smaže uloženou informaci o uživateli podle id. Použij, když uživatel řekne, že nějaká informace už neplatí.$NEVER_NARRATE",
             parameters = buildJsonObject {
                 put("type", "object")
                 putJsonObject("properties") {
@@ -170,6 +170,9 @@ object ToolSpecs {
             }
         )
     )
+
+    private const val NEVER_NARRATE =
+        " Nikdy toto volání nepiš jako text do odpovědi – vždy použij skutečné function calling."
 
     fun okResult(extra: JsonObject? = null): JsonObject = buildJsonObject {
         put("status", "ok")
