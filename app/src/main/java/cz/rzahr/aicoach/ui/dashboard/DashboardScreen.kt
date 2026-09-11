@@ -75,6 +75,7 @@ import cz.rzahr.aicoach.ui.navigation.Routes
 import cz.rzahr.aicoach.ui.theme.extendedColors
 import cz.rzahr.aicoach.util.formatDateTime
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -386,6 +387,14 @@ private fun HeroCard(
         animationSpec = tween(durationMillis = 900),
         label = "countProtein"
     )
+    // Popisky přesně k datům, která nese weekCalories: posledních 7 dní končících
+    // dneškem (date). Dřív tu bylo natvrdo Po–Ne, takže dny neseděly.
+    val weekDayLabels = remember(date) {
+        val shortDay = DateTimeFormatter.ofPattern("EE", Locale.forLanguageTag("cs"))
+        (6 downTo 0).map { offset ->
+            date.minusDays(offset.toLong()).format(shortDay).replaceFirstChar { it.uppercase() }
+        }
+    }
     Box(
         Modifier
             .fillMaxWidth()
@@ -448,7 +457,7 @@ private fun HeroCard(
             )
             Spacer(Modifier.height(6.dp))
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                listOf("Po", "Út", "St", "Čt", "Pá", "So", "Ne").forEach { dayLabel ->
+                weekDayLabels.forEach { dayLabel ->
                     Text(
                         dayLabel,
                         style = MaterialTheme.typography.labelSmall,
