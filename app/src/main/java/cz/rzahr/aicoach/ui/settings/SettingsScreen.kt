@@ -1,6 +1,7 @@
 package cz.rzahr.aicoach.ui.settings
 
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -57,6 +59,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.ui.components.SectionHeader
+import cz.rzahr.aicoach.llm.ModelFilters
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -70,6 +73,16 @@ fun SettingsScreen(
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
     val proteinGoal by viewModel.proteinGoal.collectAsStateWithLifecycle()
     val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
+    val allModels by viewModel.allModels.collectAsStateWithLifecycle()
+    val modelVisibility by viewModel.modelVisibility.collectAsStateWithLifecycle()
+    val totalModelsCount by viewModel.totalModelsCount.collectAsStateWithLifecycle()
+    val filterModels by viewModel.filterModels.collectAsStateWithLifecycle()
+    val filterFamilyPro by viewModel.filterFamilyPro.collectAsStateWithLifecycle()
+    val filterFamilyFlash by viewModel.filterFamilyFlash.collectAsStateWithLifecycle()
+    val filterFamilyFlashLite by viewModel.filterFamilyFlashLite.collectAsStateWithLifecycle()
+    val filterFamilyGemma by viewModel.filterFamilyGemma.collectAsStateWithLifecycle()
+    val filterFamilyOther by viewModel.filterFamilyOther.collectAsStateWithLifecycle()
+    val familyCounts by viewModel.familyCounts.collectAsStateWithLifecycle()
     val modelsLoading by viewModel.modelsLoading.collectAsStateWithLifecycle()
     val waterGoal by viewModel.waterGoal.collectAsStateWithLifecycle()
     val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
@@ -86,6 +99,7 @@ fun SettingsScreen(
     var patVisible by rememberSaveable { mutableStateOf(false) }
     var keyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
+    var showManageDialog by remember { mutableStateOf(false) }
     var showIssueDialog by remember { mutableStateOf(false) }
     var currentLangTag by rememberSaveable { mutableStateOf(AppCompatDelegate.getApplicationLocales().toLanguageTags().ifEmpty { java.util.Locale.getDefault().language }) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -104,8 +118,8 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(apiKey) {
-        if (apiKey.isNotBlank() && availableModels.isEmpty()) {
+    LaunchedEffect(apiKey, totalModelsCount) {
+        if (apiKey.isNotBlank() && totalModelsCount == 0) {
             viewModel.loadModels()
         }
     }
@@ -174,17 +188,87 @@ fun SettingsScreen(
                                 CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
                                 Spacer(Modifier.width(8.dp))
                             }
-                            Text(if (availableModels.isEmpty()) stringResource(R.string.settings_load_models) else stringResource(R.string.settings_refresh_models))
+                            Text(if (totalModelsCount == 0) stringResource(R.string.settings_load_models) else stringResource(R.string.settings_refresh_models))
                         }
                         Text(
-                            if (availableModels.isEmpty()) {
+                            if (totalModelsCount == 0) {
                                 stringResource(R.string.settings_models_manual_hint)
+                            } else if (filterModels) {
+                                stringResource(
+                                    R.string.settings_models_count_filtered,
+                                    availableModels.size,
+                                    totalModelsCount
+                                )
                             } else {
-                                stringResource(R.string.settings_models_count, availableModels.size)
+                                stringResource(R.string.settings_models_count, totalModelsCount)
                             },
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Checkbox(
+                            checked = filterModels,
+                            onCheckedChange = viewModel::setFilterModels
+                        )
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                stringResource(R.string.settings_filter_models),
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                            Text(
+                                stringResource(R.string.settings_filter_models_desc),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    if (filterModels) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(start = 12.dp)
+                        ) {
+                            FamilyFilterRow(
+                                checked = filterFamilyPro,
+                                onCheckedChange = viewModel::setFilterFamilyPro,
+                                label = stringResource(R.string.settings_filter_family_pro),
+                                count = familyCounts[ModelFilters.Family.PRO] ?: 0,
+                                showCount = totalModelsCount > 0
+                            )
+                            FamilyFilterRow(
+                                checked = filterFamilyFlash,
+                                onCheckedChange = viewModel::setFilterFamilyFlash,
+                                label = stringResource(R.string.settings_filter_family_flash),
+                                count = familyCounts[ModelFilters.Family.FLASH] ?: 0,
+                                showCount = totalModelsCount > 0
+                            )
+                            FamilyFilterRow(
+                                checked = filterFamilyFlashLite,
+                                onCheckedChange = viewModel::setFilterFamilyFlashLite,
+                                label = stringResource(R.string.settings_filter_family_flash_lite),
+                                count = familyCounts[ModelFilters.Family.FLASH_LITE] ?: 0,
+                                showCount = totalModelsCount > 0
+                            )
+                            FamilyFilterRow(
+                                checked = filterFamilyGemma,
+                                onCheckedChange = viewModel::setFilterFamilyGemma,
+                                label = stringResource(R.string.settings_filter_family_gemma),
+                                count = familyCounts[ModelFilters.Family.GEMMA] ?: 0,
+                                showCount = totalModelsCount > 0
+                            )
+                            FamilyFilterRow(
+                                checked = filterFamilyOther,
+                                onCheckedChange = viewModel::setFilterFamilyOther,
+                                label = stringResource(R.string.settings_filter_family_other),
+                                count = familyCounts[ModelFilters.Family.OTHER] ?: 0,
+                                showCount = totalModelsCount > 0
+                            )
+                        }
                     }
                     if (availableModels.isNotEmpty()) {
                         OutlinedButton(
@@ -192,6 +276,14 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(stringResource(R.string.settings_pick_from_list, availableModels.size))
+                        }
+                    }
+                    if (totalModelsCount > 0) {
+                        OutlinedButton(
+                            onClick = { showManageDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.settings_manage_models, totalModelsCount))
                         }
                     }
                     val savedMsg = stringResource(R.string.settings_saved_key_and_model)
@@ -429,6 +521,72 @@ fun SettingsScreen(
             confirmButton = {
                 TextButton(onClick = { showModelDialog = false }) { Text(stringResource(R.string.close)) }
             }
+        )
+    }
+
+    if (showManageDialog) {
+        // Viditelné modely první, jinak pořadí z API.
+        val manageList = allModels.sortedBy { !(modelVisibility[it] ?: false) }
+        AlertDialog(
+            onDismissRequest = { showManageDialog = false },
+            title = { Text(stringResource(R.string.settings_manage_models_title)) },
+            text = {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 420.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp)
+                ) {
+                    items(manageList, key = { it }) { candidate ->
+                        val visible = modelVisibility[candidate] ?: false
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { viewModel.setModelVisible(candidate, !visible) }
+                        ) {
+                            Checkbox(
+                                checked = visible,
+                                onCheckedChange = { viewModel.setModelVisible(candidate, it) }
+                            )
+                            Text(
+                                candidate,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = if (visible) {
+                                    MaterialTheme.colorScheme.onSurface
+                                } else {
+                                    MaterialTheme.colorScheme.onSurfaceVariant
+                                },
+                                modifier = Modifier.weight(1f)
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showManageDialog = false }) { Text(stringResource(R.string.close)) }
+            }
+        )
+    }
+}
+
+@Composable
+private fun FamilyFilterRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    label: String,
+    count: Int,
+    showCount: Boolean
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Checkbox(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+        Text(
+            if (showCount) "$label ($count)" else label,
+            style = MaterialTheme.typography.bodyMedium
         )
     }
 }

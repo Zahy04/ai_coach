@@ -193,6 +193,16 @@
     <string name="settings_refresh_models">Obnovit modely</string>
     <string name="settings_models_manual_hint">Nebo zadej ID ručně</string>
     <string name="settings_models_count">Dostupných: %1$d</string>
+    <string name="settings_models_count_filtered">Dostupných: %1$d (z %2$d)</string>
+    <string name="settings_filter_models">Filtrovat AI modely</string>
+    <string name="settings_filter_models_desc">Vyber, které rodiny modelů se nabídnou</string>
+    <string name="settings_filter_family_pro">Gemini Pro</string>
+    <string name="settings_filter_family_flash">Gemini Flash</string>
+    <string name="settings_filter_family_flash_lite">Gemini Flash-Lite</string>
+    <string name="settings_filter_family_gemma">Gemma</string>
+    <string name="settings_filter_family_other">Ostatní modely</string>
+    <string name="settings_manage_models">Spravovat modely (%1$d)</string>
+    <string name="settings_manage_models_title">Které modely nabízet</string>
     <string name="settings_pick_from_list">Vybrat ze seznamu (%1$d modelů)</string>
     <string name="settings_pick_model_title">Vyber model</string>
     <string name="settings_save">Uložit</string>

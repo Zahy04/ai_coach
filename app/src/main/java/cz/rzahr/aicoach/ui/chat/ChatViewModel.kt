@@ -10,6 +10,7 @@ import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
 import cz.rzahr.aicoach.llm.GeminiClient
+import cz.rzahr.aicoach.llm.ModelFilters
 import cz.rzahr.aicoach.llm.PromptBuilder
 import cz.rzahr.aicoach.util.formatDate
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -26,6 +27,7 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -44,8 +46,37 @@ class ChatViewModel @Inject constructor(
     val model: StateFlow<String> = settingsRepository.model
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
 
-    private val _availableModels = MutableStateFlow<List<String>>(emptyList())
-    val availableModels: StateFlow<List<String>> = _availableModels.asStateFlow()
+    private val _allModels = MutableStateFlow<List<String>>(emptyList())
+
+    private val filterModels: StateFlow<Boolean> = settingsRepository.filterModels
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_FILTER_MODELS)
+
+    private val enabledFamilies: StateFlow<Set<ModelFilters.Family>> = combine(
+        settingsRepository.filterFamilyPro,
+        settingsRepository.filterFamilyFlash,
+        settingsRepository.filterFamilyFlashLite,
+        settingsRepository.filterFamilyGemma,
+        settingsRepository.filterFamilyOther
+    ) { pro, flash, lite, gemma, other ->
+        buildSet {
+            if (pro) add(ModelFilters.Family.PRO)
+            if (flash) add(ModelFilters.Family.FLASH)
+            if (lite) add(ModelFilters.Family.FLASH_LITE)
+            if (gemma) add(ModelFilters.Family.GEMMA)
+            if (other) add(ModelFilters.Family.OTHER)
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ModelFilters.DEFAULT_FAMILIES)
+
+    /** Stejný filtr jako v Nastavení – dropdown v chatu ukazuje jen vybrané modely. */
+    val availableModels: StateFlow<List<String>> = combine(
+        _allModels,
+        filterModels,
+        enabledFamilies,
+        settingsRepository.hiddenModels,
+        settingsRepository.shownModels
+    ) { all, filter, families, hidden, shown ->
+        if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _modelsLoading = MutableStateFlow(false)
     val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
@@ -55,7 +86,9 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _modelsLoading.value = true
             try {
-                _availableModels.value = geminiClient.fetchModelNames()
+                val fresh = geminiClient.fetchModelNames()
+                _allModels.value = fresh
+                settingsRepository.pruneModelOverrides(fresh.toSet())
             } catch (_: Exception) {
                 // tiché selhání — lze zadat ručně v Nastavení
             } finally {

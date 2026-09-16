@@ -194,6 +194,16 @@
     <string name="settings_refresh_models">Refresh models</string>
     <string name="settings_models_manual_hint">Or type an ID manually</string>
     <string name="settings_models_count">Available: %1$d</string>
+    <string name="settings_models_count_filtered">Available: %1$d (of %2$d)</string>
+    <string name="settings_filter_models">Filter AI models</string>
+    <string name="settings_filter_models_desc">Choose which model families to offer</string>
+    <string name="settings_filter_family_pro">Gemini Pro</string>
+    <string name="settings_filter_family_flash">Gemini Flash</string>
+    <string name="settings_filter_family_flash_lite">Gemini Flash-Lite</string>
+    <string name="settings_filter_family_gemma">Gemma</string>
+    <string name="settings_filter_family_other">Other models</string>
+    <string name="settings_manage_models">Manage models (%1$d)</string>
+    <string name="settings_manage_models_title">Which models to offer</string>
     <string name="settings_pick_from_list">Pick from list (%1$d models)</string>
     <string name="settings_pick_model_title">Pick a model</string>
     <string name="settings_save">Save</string>
