@@ -9,6 +9,7 @@ import cz.rzahr.aicoach.llm.Content
 import cz.rzahr.aicoach.llm.GenerateContentRequest
 import cz.rzahr.aicoach.llm.GenerateContentResponse
 import cz.rzahr.aicoach.llm.GenerationConfig
+import cz.rzahr.aicoach.llm.InlineData
 import cz.rzahr.aicoach.llm.Part
 import java.io.IOException
 import javax.inject.Inject
@@ -62,6 +63,12 @@ data class CoreMessages(
 
 class MensaEstimationException(message: String) : Exception(message)
 
+/** Fotka jídla připravená pro vision odhad (už zmenšená, base64). */
+data class VisionImage(
+    val mimeType: String = "image/jpeg",
+    val base64: String
+)
+
 @Singleton
 class MensaEstimator @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
@@ -109,6 +116,109 @@ class MensaEstimator @Inject constructor(
             result
         }
 
+    /**
+     * Vision odhad: k textovému popisu přikládá fotky skutečných porcí
+     * (z denní stránky menzy). Přesnější porce, přílohy a omáčky z fotky.
+     * [images] mapuje index v [meals] na fotku.
+     */
+    suspend fun estimateVision(
+        systemId: Int,
+        meals: List<MensaMealEntity>,
+        images: Map<Int, VisionImage>,
+        patient: Boolean = false
+    ): List<MensaEstimation>? =
+        withContext(Dispatchers.IO) {
+            if (meals.isEmpty() || images.isEmpty()) {
+                Log.d(TAG, "estimateVision: nic k odhadu (jídel=${meals.size}, fotek=${images.size})")
+                return@withContext emptyList()
+            }
+            val apiKey = settings.apiKey.first()
+            if (apiKey.isBlank()) {
+                Log.e(TAG, "estimateVision: API klíč je PRÁZDNÝ")
+                throw MensaEstimationException(context.getString(R.string.gemini_key_blank))
+            }
+
+            val model = settings.model.first()
+            Log.d(TAG, "estimateVision: systemId=$systemId, jídel=${meals.size}, fotek=${images.size}, model=$model")
+            val parts = MensaEstimatorCore.buildVisionParts(meals, images)
+            val responseText = try {
+                MensaEstimatorCore.generateWithParts(
+                    http, json, apiKey, model, parts,
+                    maxRetries = if (patient) 6 else 3,
+                    baseDelayMs = if (patient) 3000L else 1500L,
+                    msgs = localizedMessages()
+                )
+            } catch (_: IOException) {
+                throw MensaEstimationException(context.getString(R.string.err_network))
+            } ?: run {
+                Log.e(TAG, "estimateVision: vyčerpané retrye (429/503)")
+                throw MensaEstimationException(context.getString(R.string.mensa_exhausted))
+            }
+
+            Log.d(TAG, "estimateVision: odpověď (${responseText.length} znaků): ${responseText.take(300)}")
+            MensaEstimatorCore.parseEstimates(json, responseText, meals.size, localizedMessages())
+        }
+
+    /**
+     * Stáhne fotku jídla z Agáty a zmenší ji pro vision API
+     * (max 1024 px, JPEG 80). Vrací null při jakémkoliv selhání —
+     * volající pak jídlo odhadne jen textově.
+     */
+    suspend fun fetchPhotoBytes(url: String): ByteArray? = withContext(Dispatchers.IO) {
+        try {
+            val request = Request.Builder()
+                .url(url)
+                .addHeader("User-Agent", "AiCoach/1.0 (android)")
+                .get()
+                .build()
+            val raw = http.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) return@withContext null
+                val body = response.body ?: return@withContext null
+                if (body.contentLength() > MAX_PHOTO_BYTES) return@withContext null
+                body.bytes()
+            }
+            if (raw.size > MAX_PHOTO_BYTES) return@withContext null
+            downscaleToJpeg(raw)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun downscaleToJpeg(bytes: ByteArray, maxDim: Int = 1024, quality: Int = 80): ByteArray? {
+        return try {
+            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            while (bounds.outWidth / sample > maxDim || bounds.outHeight / sample > maxDim) sample *= 2
+            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
+            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
+                ?: return null
+            val scale = minOf(
+                maxDim / bitmap.width.toFloat(),
+                maxDim / bitmap.height.toFloat(),
+                1f
+            )
+            val final = if (scale < 1f) {
+                android.graphics.Bitmap.createScaledBitmap(
+                    bitmap,
+                    (bitmap.width * scale).toInt().coerceAtLeast(1),
+                    (bitmap.height * scale).toInt().coerceAtLeast(1),
+                    true
+                )
+            } else {
+                bitmap
+            }
+            val out = java.io.ByteArrayOutputStream()
+            final.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
+            if (final !== bitmap) bitmap.recycle()
+            final.recycle()
+            out.toByteArray().takeIf { it.isNotEmpty() }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
     private fun localizedMessages() = CoreMessages(
         emptyReply = context.getString(R.string.mensa_empty_text),
         reasonFmt = context.getString(R.string.mensa_reason_suffix),
@@ -120,6 +230,7 @@ class MensaEstimator @Inject constructor(
 
     companion object {
         private const val TAG = "MensaEstimator"
+        private const val MAX_PHOTO_BYTES = 12_000_000
     }
 }
 
@@ -154,6 +265,54 @@ object MensaEstimatorCore {
         """.trimIndent()
     }
 
+    /** Vision prompt: stejný formát odpovědi jako textový, ale s důrazem na fotky porcí. */
+    fun buildVisionPrompt(meals: List<MensaMealEntity>): String {
+        val listing = buildString {
+            appendLine("Seznam jídel z menzy:")
+            meals.forEachIndexed { index, meal ->
+                val grams = meal.grams?.let { "$it g" } ?: "neznámá gramáž"
+                val photo = if (meal.photoUrl != null) "ano" else "ne"
+                appendLine("$index | ${meal.category} | $grams | ${meal.name} | foto: $photo")
+            }
+        }
+        return """
+            Jsi výživový expert. Níže je seznam jídel z české studentské menzy.
+            Za tímto textem následují FOTKY skutečných porcí — každá je uvozená
+            textem "Foto k položce N:". Z fotky poznej skutečnou velikost porce,
+            množství přílohy, omáčky a smažení; textový popis ber jako vodítko
+            (gramáž je u masa uváděna v syrovém stavu, u salátů celková hmotnost).
+            Jídla bez fotky odhadni jen z textu.
+
+            Vrať VÝHRADNĚ JSON objekt ve tvaru:
+            {"meals":[{"index":0,"kcal_min":600,"kcal_max":850,"protein_g":35,"carbs_g":70,"fat_g":25,"verdict":"GREEN"}]}
+
+            Pravidla pro verdict (celkové fitness hodnocení jídla):
+            - GREEN = vhodné pro fitness (dost bílkovin, méně smaženého, rozumné kalorie)
+            - YELLOW = průměrné (vyvážené, ale těžší přílohy/omáčky)
+            - RED = kalorická bomby a smažená jídla s málo bílkovinami
+
+            $listing
+        """.trimIndent()
+    }
+
+    /**
+     * Multimodální party pro vision odhad: prompt + ke každému jídlu
+     * s fotkou krátký popisek a fotku (inlineData). Čisté — testovatelné bez sítě.
+     */
+    fun buildVisionParts(
+        meals: List<MensaMealEntity>,
+        images: Map<Int, VisionImage>
+    ): List<Part> {
+        val parts = mutableListOf(Part(text = buildVisionPrompt(meals)))
+        meals.forEachIndexed { index, meal ->
+            images[index]?.let { image ->
+                parts += Part(text = "Foto k položce $index (${meal.name}):")
+                parts += Part(inlineData = InlineData(mimeType = image.mimeType, data = image.base64))
+            }
+        }
+        return parts
+    }
+
     /** Vrací vnitřní text odpovědi (JSON s odhady); null znamená „nevratno, jdi dál". */
     suspend fun generateWithRetry(
         http: OkHttpClient,
@@ -165,11 +324,27 @@ object MensaEstimatorCore {
         maxRetries: Int = 6,
         baseDelayMs: Long = 3000L,
         msgs: CoreMessages = CoreMessages()
+    ): String? = generateWithParts(
+        http, json, apiKey, model, listOf(Part(text = prompt)),
+        baseUrl = baseUrl, maxRetries = maxRetries, baseDelayMs = baseDelayMs, msgs = msgs
+    )
+
+    /** Stejné jako generateWithRetry, ale s libovolnými party (text + fotky). */
+    suspend fun generateWithParts(
+        http: OkHttpClient,
+        json: Json,
+        apiKey: String,
+        model: String,
+        parts: List<Part>,
+        baseUrl: String = BASE_URL,
+        maxRetries: Int = 6,
+        baseDelayMs: Long = 3000L,
+        msgs: CoreMessages = CoreMessages()
     ): String? {
         var lastError: Exception? = null
         repeat(maxRetries) { attempt ->
             val request = GenerateContentRequest(
-                contents = listOf(Content(role = "user", parts = listOf(Part(text = prompt)))),
+                contents = listOf(Content(role = "user", parts = parts)),
                 generationConfig = GenerationConfig(temperature = 0.2f, responseMimeType = "application/json")
             )
             val bodyJson = json.encodeToString(GenerateContentRequest.serializer(), request)

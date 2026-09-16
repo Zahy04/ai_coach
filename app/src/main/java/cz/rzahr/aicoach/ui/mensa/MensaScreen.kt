@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Refresh
@@ -39,9 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.compose.AsyncImage
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
@@ -220,6 +223,17 @@ private fun MensaMealRow(
             Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            meal.photoUrl?.let { url ->
+                AsyncImage(
+                    model = url,
+                    contentDescription = stringResource(R.string.mensa_food_photo),
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                )
+                Spacer(Modifier.width(12.dp))
+            }
             Box(
                 Modifier
                     .size(12.dp)
@@ -230,12 +244,14 @@ private fun MensaMealRow(
             Column(Modifier.weight(1f)) {
                 Text(meal.name, style = MaterialTheme.typography.titleSmall)
                 Spacer(Modifier.height(2.dp))
+                val noEstimateText = stringResource(R.string.mensa_no_estimate)
+                val allergensText = meal.allergens?.let { stringResource(R.string.mensa_allergens, it) }
                 Text(
                     buildString {
                         if (meal.kcalMin != null && meal.kcalMax != null) {
                             append("≈ ${meal.kcalMin}–${meal.kcalMax} kcal")
                         } else {
-                            append("odhad není dostupný")
+                            append(noEstimateText)
                         }
                         val macros = listOfNotNull(
                             meal.proteinG?.let { "B ${it.toInt()} g" },
@@ -243,6 +259,7 @@ private fun MensaMealRow(
                             meal.fatG?.let { "T ${it.toInt()} g" }
                         )
                         if (macros.isNotEmpty()) append(" · ").append(macros.joinToString(", "))
+                        allergensText?.let { append("\n").append(it) }
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

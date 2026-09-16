@@ -30,7 +30,10 @@ class MensaAutoRefresher @Inject constructor(
         scope.launch {
             try {
                 val today = LocalDate.now().toEpochDay().toString()
-                if (settingsRepository.mensaLastFetchDay.first() == today) return@launch
+                val fetchedToday = settingsRepository.mensaLastFetchDay.first() == today
+                // Fotky přibývají až kolem 10:30–10:45 — i když už se dnes stahovalo,
+                // zkusíme je dotáhnout, dokud dnešní jídla nemají žádnou fotku.
+                if (fetchedToday && !mensaRepository.needsPhotoRefresh()) return@launch
                 runCatching { mensaRepository.refresh(force = false) }
                 settingsRepository.setMensaLastFetchDay(today)
             } catch (_: Exception) {

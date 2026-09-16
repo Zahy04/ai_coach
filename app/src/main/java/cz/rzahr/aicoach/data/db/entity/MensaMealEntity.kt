@@ -17,7 +17,15 @@ data class MensaMealEntity(
     val proteinG: Double? = null,
     val carbsG: Double? = null,
     val fatG: Double? = null,
-    val rating: String? = null
+    val rating: String? = null,
+    // Denní stránka (?clPodsystem=N): ID jídla, fotka a alergeny.
+    // Fotky kuchyně vystavuje až kolem 10:30–10:45 daného dne.
+    val jidloId: Int? = null,
+    val photoUrl: String? = null,
+    val allergens: String? = null,
+    // true = odhad už proběhl s fotkou (vision); false = jen textový
+    // a při příchodu fotky se má doodhadnout přes vision.
+    val visionEstimated: Boolean = false
 ) {
     companion object {
         const val SYSTEM_STUDENTSKEJ_DUM = 2

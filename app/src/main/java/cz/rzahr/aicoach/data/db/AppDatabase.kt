@@ -35,7 +35,7 @@ import cz.rzahr.aicoach.data.db.entity.WorkoutEntryEntity
         MensaMealEntity::class,
         PoseFolderEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -106,6 +106,15 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE TABLE IF NOT EXISTS pose_folders (name TEXT PRIMARY KEY NOT NULL)"
                 )
+            }
+        }
+
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE mensa_meals ADD COLUMN jidloId INTEGER DEFAULT NULL")
+                db.execSQL("ALTER TABLE mensa_meals ADD COLUMN photoUrl TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE mensa_meals ADD COLUMN allergens TEXT DEFAULT NULL")
+                db.execSQL("ALTER TABLE mensa_meals ADD COLUMN visionEstimated INTEGER NOT NULL DEFAULT 0")
             }
         }
     }

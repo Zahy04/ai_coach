@@ -165,6 +165,8 @@
     <string name="mensa_logged_button">Logged</string>
     <string name="mensa_logged_snackbar">Logged to diary: %1$s</string>
     <string name="mensa_no_estimate">estimate not available</string>
+    <string name="mensa_food_photo">Meal photo</string>
+    <string name="mensa_allergens">Allergens: %1$s</string>
     <string name="kcal_range">≈ %1$d–%2$d kcal</string>
 
     <!-- Photos -->

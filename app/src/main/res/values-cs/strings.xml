@@ -164,6 +164,8 @@
     <string name="mensa_logged_button">Zapsáno</string>
     <string name="mensa_logged_snackbar">Zapsáno do deníku: %1$s</string>
     <string name="mensa_no_estimate">odhad není dostupný</string>
+    <string name="mensa_food_photo">Foto jídla</string>
+    <string name="mensa_allergens">Alergeny: %1$s</string>
     <string name="kcal_range">≈ %1$d–%2$d kcal</string>
 
     <!-- Photos -->

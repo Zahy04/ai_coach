@@ -179,4 +179,47 @@ class MensaEstimatorCoreTest {
         assertEquals(1, result!!.size)
         assertEquals(300, result[0].kcalMin)
     }
+
+    // ---- Vision odhad s fotkami ----
+
+    @Test
+    fun `buildVisionParts spoji prompt s fotkami ve spravnem poradi`() {
+        val meals = listOf(
+            meal(0).copy(name = "Kuřecí steak", photoUrl = "http://x/foto1"),
+            meal(1).copy(name = "Polévka", photoUrl = null)
+        )
+        val images = mapOf(0 to VisionImage(base64 = "ZmFrZS1ieXRlcw=="))
+
+        val parts = MensaEstimatorCore.buildVisionParts(meals, images)
+
+        // prompt + popisek + fotka; jídlo bez fotky nic navíc
+        assertEquals(3, parts.size)
+        assertTrue(parts[0].text!!.contains("FOTKY"))
+        assertTrue(parts[1].text!!.contains("položce 0"))
+        assertEquals("image/jpeg", parts[2].inlineData!!.mimeType)
+        assertEquals("ZmFrZS1ieXRlcw==", parts[2].inlineData!!.data)
+    }
+
+    @Test
+    fun `generateWithParts posle fotku jako inlineData`() = runTest {
+        server.enqueue(envelope(properInnerJson))
+
+        val parts = listOf(
+            cz.rzahr.aicoach.llm.Part(text = "odhadi"),
+            cz.rzahr.aicoach.llm.Part(
+                inlineData = cz.rzahr.aicoach.llm.InlineData(
+                    mimeType = "image/jpeg",
+                    data = "ZmFrZS1ieXRlcw=="
+                )
+            )
+        )
+        val text = MensaEstimatorCore.generateWithParts(
+            client, json, "k", "m", parts, baseUrl = server.url("/").toString().trimEnd('/')
+        )
+        assertEquals(properInnerJson, text)
+
+        val sent = server.takeRequest().body.readUtf8()
+        assertTrue(sent.contains("image/jpeg"))
+        assertTrue(sent.contains("ZmFrZS1ieXRlcw=="))
+    }
 }
