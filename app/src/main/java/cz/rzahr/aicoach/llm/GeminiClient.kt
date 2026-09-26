@@ -19,6 +19,7 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
+import kotlin.random.Random
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -144,10 +145,13 @@ class GeminiClient @Inject constructor(
             val response = http.newCall(httpRequest).await()
 
             if (!response.isSuccessful) {
+                val retryAfterHeader = response.header("Retry-After")
                 val errorText = response.use { it.body?.string().orEmpty() }
                 val retryable = response.code == 429 || response.code == 503
                 if (retryable && attempt < MAX_RETRIES - 1) {
-                    delay(RETRY_BASE_DELAY_MS * (1L shl attempt))
+                    val wait = computeRetryDelayMs(attempt, errorText, retryAfterHeader)
+                    Log.w(TAG, "request 429/503 – retry ${attempt + 1}/$MAX_RETRIES za ${wait}ms")
+                    delay(wait)
                     attempt++
                     continue
                 }
@@ -361,12 +365,38 @@ class GeminiClient @Inject constructor(
         private const val TAG = "GeminiClient"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
         private const val MAX_TOOL_ROUNDS = 6
-        private const val MAX_RETRIES = 4
+        private const val MAX_RETRIES = 6
         private const val RETRY_BASE_DELAY_MS = 2000L
         private const val CHAT_TEMPERATURE = 0.3f
         private val EXCLUDED_MODEL_SUBSTRINGS = listOf(
             "embedding", "embed", "imagen", "image", "tts", "speech",
             "veo", "video", "audio", "aqua", "lyria", "music"
         )
+
+        /** Gemini v 429 často posílá "retryDelay": "23s" — respektujeme ho. */
+        private val RETRY_DELAY_REGEX = Regex("\"retryDelay\":\\s*\"(\\d+)s\"")
+
+        /**
+         * Pauza před dalším pokusem při 429/503 (issue #2).
+         * Přednost má serverem navržená pauza – "retryDelay" v JSON těle,
+         * jinak Retry-After hlavička (sekundy), jinak exponenciální backoff + jitter.
+         * Čistá funkce – testovatelná bez sítě.
+         */
+        internal fun computeRetryDelayMs(
+            attempt: Int,
+            errorText: String,
+            retryAfterHeader: String?,
+            jitterMs: Long = Random.nextLong(0L, 1000L)
+        ): Long {
+            val serverWaitMs = RETRY_DELAY_REGEX.find(errorText)
+                ?.groupValues?.getOrNull(1)?.toLongOrNull()?.times(1000L)
+                ?: retryAfterHeader?.let { parseRetryAfterMs(it) }
+            val backoffMs = RETRY_BASE_DELAY_MS * (1L shl attempt)
+            return (serverWaitMs ?: (backoffMs + jitterMs)).coerceIn(1000L, 90_000L)
+        }
+
+        /** Retry-After v sekundách; HTTP-date formát nepodporujeme (server posílá sekundy). */
+        internal fun parseRetryAfterMs(value: String): Long? =
+            value.trim().toLongOrNull()?.times(1000L)?.takeIf { it >= 0 }
     }
 }
