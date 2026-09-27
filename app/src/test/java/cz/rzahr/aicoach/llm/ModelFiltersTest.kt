@@ -152,4 +152,49 @@ class ModelFiltersTest {
             )
         )
     }
+
+    @Test
+    fun `pinQwenFirst da qwen prvni kdyz ji filtr schoval`() {
+        val all = listOf("qwen/qwen3.8-27b:free", "gemini-2.5-flash")
+        val filtered = listOf("gemini-2.5-flash") // qwen padla do OTHER
+        assertEquals(
+            listOf("qwen/qwen3.8-27b:free", "gemini-2.5-flash"),
+            ModelFilters.pinQwenFirst(filtered, all, emptySet())
+        )
+    }
+
+    @Test
+    fun `pinQwenFirst respektuje skryti a poradi`() {
+        val all = listOf("qwen/qwen3.8-27b:free", "gemini-2.5-flash")
+        // Skrytá qwen se nepřidává.
+        assertEquals(
+            listOf("gemini-2.5-flash"),
+            ModelFilters.pinQwenFirst(
+                listOf("gemini-2.5-flash"), all, setOf("qwen/qwen3.8-27b:free")
+            )
+        )
+        // Qwen první v API a ve filtru – pořadí beze změny, bez duplicity.
+        assertEquals(
+            all,
+            ModelFilters.pinQwenFirst(all, all, emptySet())
+        )
+        // Bez qwen v API se nic nemění.
+        assertEquals(
+            listOf("gemini-2.5-flash"),
+            ModelFilters.pinQwenFirst(listOf("gemini-2.5-flash"), listOf("gemini-2.5-flash"), emptySet())
+        )
+    }
+
+    @Test
+    fun `isVisibleUnified qwen jen dle skryti gemini dle rodin`() {
+        val families = ModelFilters.DEFAULT_FAMILIES
+        assertTrue(ModelFilters.isVisibleUnified("qwen/qwen3.8-27b:free", families))
+        assertFalse(
+            ModelFilters.isVisibleUnified(
+                "qwen/qwen3.8-27b:free", families, hidden = setOf("qwen/qwen3.8-27b:free")
+            )
+        )
+        assertTrue(ModelFilters.isVisibleUnified("gemini-2.5-flash", families))
+        assertFalse(ModelFilters.isVisibleUnified("gemini-embedding-001", families))
+    }
 }

@@ -41,12 +41,12 @@ class GeminiClient @Inject constructor(
     private val json: Json,
     private val settings: SettingsRepository,
     private val toolExecutor: ToolExecutor
-) {
+) : LlmClient {
 
-    suspend fun chat(
+    override suspend fun chat(
         systemPrompt: String,
         history: List<Content>,
-        onDelta: suspend (String) -> Unit = {}
+        onDelta: suspend (String) -> Unit
     ): ChatTurnResult = withContext(Dispatchers.IO) {
         val apiKey = settings.apiKey.first()
         if (apiKey.isBlank()) {
@@ -144,10 +144,13 @@ class GeminiClient @Inject constructor(
             val response = http.newCall(httpRequest).await()
 
             if (!response.isSuccessful) {
+                val retryAfterHeader = response.header("Retry-After")
                 val errorText = response.use { it.body?.string().orEmpty() }
                 val retryable = response.code == 429 || response.code == 503
                 if (retryable && attempt < MAX_RETRIES - 1) {
-                    delay(RETRY_BASE_DELAY_MS * (1L shl attempt))
+                    val wait = RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfterHeader)
+                    Log.w(TAG, "request 429/503 – retry ${attempt + 1}/$MAX_RETRIES za ${wait}ms")
+                    delay(wait)
                     attempt++
                     continue
                 }
@@ -293,7 +296,7 @@ class GeminiClient @Inject constructor(
         return cleaned.ifBlank { SettingsRepository.DEFAULT_MODEL }
     }
 
-    suspend fun fetchModelNames(): List<String> = withContext(Dispatchers.IO) {
+    override suspend fun fetchModelNames(): List<String> = withContext(Dispatchers.IO) {
         val apiKey = settings.apiKey.first()
         if (apiKey.isBlank()) throw GeminiException("Chybí API klíč. Zadej ho v Nastavení.")
         val request = Request.Builder()
@@ -361,8 +364,7 @@ class GeminiClient @Inject constructor(
         private const val TAG = "GeminiClient"
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
         private const val MAX_TOOL_ROUNDS = 6
-        private const val MAX_RETRIES = 4
-        private const val RETRY_BASE_DELAY_MS = 2000L
+        private const val MAX_RETRIES = 6
         private const val CHAT_TEMPERATURE = 0.3f
         private val EXCLUDED_MODEL_SUBSTRINGS = listOf(
             "embedding", "embed", "imagen", "image", "tts", "speech",

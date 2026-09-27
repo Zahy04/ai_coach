@@ -69,6 +69,7 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val apiKey by viewModel.apiKey.collectAsStateWithLifecycle()
+    val openRouterApiKey by viewModel.openRouterApiKey.collectAsStateWithLifecycle()
     val model by viewModel.model.collectAsStateWithLifecycle()
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
     val proteinGoal by viewModel.proteinGoal.collectAsStateWithLifecycle()
@@ -89,7 +90,8 @@ fun SettingsScreen(
     val githubPat by viewModel.githubPat.collectAsStateWithLifecycle()
     val issueSending by viewModel.issueSending.collectAsStateWithLifecycle()
 
-    var newKeyInput by rememberSaveable { mutableStateOf("") }
+    var newGeminiKeyInput by rememberSaveable { mutableStateOf("") }
+    var newOpenRouterKeyInput by rememberSaveable { mutableStateOf("") }
     var modelInput by rememberSaveable { mutableStateOf<String?>(null) }
     var calorieGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var proteinGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
@@ -97,7 +99,8 @@ fun SettingsScreen(
     var goalWeightInput by rememberSaveable { mutableStateOf<String?>(null) }
     var newPatInput by rememberSaveable { mutableStateOf("") }
     var patVisible by rememberSaveable { mutableStateOf(false) }
-    var keyVisible by rememberSaveable { mutableStateOf(false) }
+    var geminiKeyVisible by rememberSaveable { mutableStateOf(false) }
+    var openRouterKeyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showIssueDialog by remember { mutableStateOf(false) }
@@ -118,8 +121,8 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(apiKey, totalModelsCount) {
-        if (apiKey.isNotBlank() && totalModelsCount == 0) {
+    LaunchedEffect(apiKey, openRouterApiKey, totalModelsCount) {
+        if ((apiKey.isNotBlank() || openRouterApiKey.isNotBlank()) && totalModelsCount == 0) {
             viewModel.loadModels()
         }
     }
@@ -148,24 +151,55 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_coach))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_gemini_api), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_api_keys), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.settings_gemini_api),
+                        style = MaterialTheme.typography.titleSmall
+                    )
                     Text(
                         if (apiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
                         style = MaterialTheme.typography.bodySmall,
                         color = if (apiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                     OutlinedTextField(
-                        value = newKeyInput,
-                        onValueChange = { newKeyInput = it },
+                        value = newGeminiKeyInput,
+                        onValueChange = { newGeminiKeyInput = it },
                         label = { Text(stringResource(R.string.settings_new_api_key)) },
                         placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
                         singleLine = true,
-                        visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        visualTransformation = if (geminiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
-                            IconButton(onClick = { keyVisible = !keyVisible }) {
+                            IconButton(onClick = { geminiKeyVisible = !geminiKeyVisible }) {
                                 Icon(
-                                    if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    if (geminiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(R.string.settings_show_key)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        stringResource(R.string.settings_openrouter_api),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        if (openRouterApiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (openRouterApiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                    OutlinedTextField(
+                        value = newOpenRouterKeyInput,
+                        onValueChange = { newOpenRouterKeyInput = it },
+                        label = { Text(stringResource(R.string.settings_new_api_key)) },
+                        placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
+                        singleLine = true,
+                        visualTransformation = if (openRouterKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { openRouterKeyVisible = !openRouterKeyVisible }) {
+                                Icon(
+                                    if (openRouterKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                     contentDescription = stringResource(R.string.settings_show_key)
                                 )
                             }
@@ -290,10 +324,15 @@ fun SettingsScreen(
                     val modelOnlyMsg = stringResource(R.string.settings_saved_model_only)
                     Button(
                         onClick = {
-                            val savedWithKey = newKeyInput.isNotBlank()
-                            viewModel.save(modelInput.orEmpty(), newKeyInput.takeIf { it.isNotBlank() })
+                            val savedWithKey = newGeminiKeyInput.isNotBlank() || newOpenRouterKeyInput.isNotBlank()
+                            viewModel.save(
+                                modelInput.orEmpty(),
+                                newGeminiKey = newGeminiKeyInput.takeIf { it.isNotBlank() },
+                                newOpenRouterKey = newOpenRouterKeyInput.takeIf { it.isNotBlank() }
+                            )
                             scope.launch { snackbarHostState.showSnackbar(if (savedWithKey) savedMsg else modelOnlyMsg) }
-                            newKeyInput = ""
+                            newGeminiKeyInput = ""
+                            newOpenRouterKeyInput = ""
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -425,6 +464,11 @@ fun SettingsScreen(
                     Text(stringResource(R.string.settings_howto_title), style = MaterialTheme.typography.titleMedium)
                     Text(
                         stringResource(R.string.settings_howto_body),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        stringResource(R.string.settings_howto_body_openrouter),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

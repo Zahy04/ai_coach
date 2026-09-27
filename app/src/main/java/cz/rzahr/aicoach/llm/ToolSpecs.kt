@@ -1,6 +1,9 @@
 package cz.rzahr.aicoach.llm
 
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.addJsonObject
+import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
@@ -173,6 +176,23 @@ object ToolSpecs {
 
     private const val NEVER_NARRATE =
         " Nikdy toto volání nepiš jako text do odpovědi – vždy použij skutečné function calling."
+
+    /**
+     * Stejné nástroje ve formátu OpenAI `tools` (pro OpenRouter).
+     * JSON schéma parametrů je identické, liší se jen obálka.
+     */
+    fun openAiTools(): JsonArray = buildJsonArray {
+        declarations.forEach { decl ->
+            addJsonObject {
+                put("type", "function")
+                putJsonObject("function") {
+                    put("name", decl.name)
+                    put("description", decl.description)
+                    put("parameters", decl.parameters ?: buildJsonObject { put("type", "object") })
+                }
+            }
+        }
+    }
 
     fun okResult(extra: JsonObject? = null): JsonObject = buildJsonObject {
         put("status", "ok")

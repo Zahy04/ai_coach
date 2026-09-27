@@ -10,6 +10,7 @@ import cz.rzahr.aicoach.llm.GenerateContentRequest
 import cz.rzahr.aicoach.llm.GenerateContentResponse
 import cz.rzahr.aicoach.llm.GenerationConfig
 import cz.rzahr.aicoach.llm.InlineData
+import cz.rzahr.aicoach.llm.OpenRouterClient
 import cz.rzahr.aicoach.llm.Part
 import java.io.IOException
 import javax.inject.Inject
@@ -74,8 +75,15 @@ class MensaEstimator @Inject constructor(
     @dagger.hilt.android.qualifiers.ApplicationContext private val context: android.content.Context,
     private val http: OkHttpClient,
     private val json: Json,
-    private val settings: SettingsRepository
+    private val settings: SettingsRepository,
+    private val openRouterClient: OpenRouterClient
 ) {
+
+    private suspend fun useOpenRouter(): Boolean =
+        settings.provider.first() == SettingsRepository.PROVIDER_OPENROUTER
+
+    private suspend fun activeApiKey(): String =
+        if (useOpenRouter()) settings.openRouterApiKey.first() else settings.apiKey.first()
 
     suspend fun estimate(
         systemId: Int,
@@ -87,7 +95,7 @@ class MensaEstimator @Inject constructor(
                 Log.d(TAG, "estimate: žádná jídla k odhadu (systemId=$systemId)")
                 return@withContext emptyList()
             }
-            val apiKey = settings.apiKey.first()
+            val apiKey = activeApiKey()
             if (apiKey.isBlank()) {
                 Log.e(TAG, "estimate: API klíč je PRÁZDNÝ — zadej ho v Nastavení")
                 throw MensaEstimationException(context.getString(R.string.gemini_key_blank))
@@ -97,12 +105,19 @@ class MensaEstimator @Inject constructor(
             Log.d(TAG, "estimate: systemId=$systemId, jídel=${meals.size}, model=$model, patient=$patient")
             val prompt = MensaEstimatorCore.buildPrompt(meals)
             val responseText = try {
-                MensaEstimatorCore.generateWithRetry(
-                    http, json, apiKey, model, prompt,
-                    maxRetries = if (patient) 6 else 3,
-                    baseDelayMs = if (patient) 3000L else 1500L,
-                    msgs = localizedMessages()
-                )
+                if (useOpenRouter()) {
+                    OpenRouterClient.completeJson(
+                        http, json, apiKey, model, prompt,
+                        maxAttempts = if (patient) 6 else 3
+                    )
+                } else {
+                    MensaEstimatorCore.generateWithRetry(
+                        http, json, apiKey, model, prompt,
+                        maxRetries = if (patient) 6 else 3,
+                        baseDelayMs = if (patient) 3000L else 1500L,
+                        msgs = localizedMessages()
+                    )
+                }
             } catch (_: IOException) {
                 throw MensaEstimationException(context.getString(R.string.err_network))
             } ?: run {
@@ -132,7 +147,7 @@ class MensaEstimator @Inject constructor(
                 Log.d(TAG, "estimateVision: nic k odhadu (jídel=${meals.size}, fotek=${images.size})")
                 return@withContext emptyList()
             }
-            val apiKey = settings.apiKey.first()
+            val apiKey = activeApiKey()
             if (apiKey.isBlank()) {
                 Log.e(TAG, "estimateVision: API klíč je PRÁZDNÝ")
                 throw MensaEstimationException(context.getString(R.string.gemini_key_blank))
@@ -142,12 +157,21 @@ class MensaEstimator @Inject constructor(
             Log.d(TAG, "estimateVision: systemId=$systemId, jídel=${meals.size}, fotek=${images.size}, model=$model")
             val parts = MensaEstimatorCore.buildVisionParts(meals, images)
             val responseText = try {
-                MensaEstimatorCore.generateWithParts(
-                    http, json, apiKey, model, parts,
-                    maxRetries = if (patient) 6 else 3,
-                    baseDelayMs = if (patient) 3000L else 1500L,
-                    msgs = localizedMessages()
-                )
+                if (useOpenRouter()) {
+                    OpenRouterClient.completeJson(
+                        http, json, apiKey, model,
+                        prompt = parts.mapNotNull { it.text }.joinToString("\n"),
+                        imageParts = parts.filter { it.inlineData != null },
+                        maxAttempts = if (patient) 6 else 3
+                    )
+                } else {
+                    MensaEstimatorCore.generateWithParts(
+                        http, json, apiKey, model, parts,
+                        maxRetries = if (patient) 6 else 3,
+                        baseDelayMs = if (patient) 3000L else 1500L,
+                        msgs = localizedMessages()
+                    )
+                }
             } catch (_: IOException) {
                 throw MensaEstimationException(context.getString(R.string.err_network))
             } ?: run {

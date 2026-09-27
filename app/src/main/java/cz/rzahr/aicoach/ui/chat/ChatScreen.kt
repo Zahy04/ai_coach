@@ -291,7 +291,10 @@ fun ChatScreen(
                 .imePadding()
         ) {
             if (!hasApiKey) {
-                ApiKeyMissingBanner(onOpenSettings = onOpenSettings)
+                ApiKeyMissingBanner(
+                    isOpenRouter = '/' in currentModel,
+                    onOpenSettings = onOpenSettings
+                )
             }
             error?.let { message ->
                 ErrorBanner(
@@ -430,7 +433,7 @@ private fun CoachAvatar(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ApiKeyMissingBanner(onOpenSettings: () -> Unit) {
+private fun ApiKeyMissingBanner(isOpenRouter: Boolean, onOpenSettings: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -439,13 +442,17 @@ private fun ApiKeyMissingBanner(onOpenSettings: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                stringResource(R.string.chat_missing_key_title),
+                stringResource(
+                    if (isOpenRouter) R.string.chat_missing_key_title_or else R.string.chat_missing_key_title
+                ),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.size(4.dp))
             Text(
-                stringResource(R.string.chat_missing_key_body),
+                stringResource(
+                    if (isOpenRouter) R.string.chat_missing_key_body_or else R.string.chat_missing_key_body
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
