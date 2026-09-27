@@ -98,7 +98,10 @@ fun GlowProgressRing(
     stroke: Dp = 10.dp,
     trackColor: Color = MaterialTheme.colorScheme.surfaceVariant,
     valueStyle: TextStyle = MaterialTheme.typography.titleMedium,
-    labelStyle: TextStyle = MaterialTheme.typography.labelSmall
+    labelStyle: TextStyle = MaterialTheme.typography.labelSmall,
+    /** Volitelná značka (např. očekávané tempo) – tečka na oblouku, 0..1. */
+    markerProgress: Float? = null,
+    markerColor: Color = Color.White
 ) {
     val animatedProgress by animateFloatAsState(
         targetValue = progress.coerceIn(0f, 1f),
@@ -143,6 +146,18 @@ fun GlowProgressRing(
                 size = arcSize,
                 style = Stroke(width = strokePx, cap = StrokeCap.Round)
             )
+            markerProgress?.coerceIn(0f, 1f)?.let { marker ->
+                val angleRad = Math.toRadians((-90.0 + 360.0 * marker).toDouble())
+                val radius = (size.minDimension - strokePx) / 2
+                drawCircle(
+                    color = markerColor,
+                    radius = strokePx * 0.9f,
+                    center = center + Offset(
+                        (kotlin.math.cos(angleRad) * radius).toFloat(),
+                        (kotlin.math.sin(angleRad) * radius).toFloat()
+                    )
+                )
+            }
         }
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(value, style = valueStyle, color = Color.White)

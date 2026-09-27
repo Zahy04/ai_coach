@@ -13,6 +13,7 @@ import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
 import cz.rzahr.aicoach.util.toLocalDate
+import cz.rzahr.aicoach.util.WeeklyGoal
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Duration
 import java.time.LocalDate
@@ -67,6 +68,15 @@ class DashboardViewModel @Inject constructor(
     val calorieGoal: StateFlow<Int> = settingsRepository.dailyCalorieGoal
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 2000)
 
+    /** Týdenní cíl = 7× denní (issue #3). */
+    val weeklyGoal: StateFlow<Int> = settingsRepository.dailyCalorieGoal
+        .map { it * DAYS_IN_WEEK }
+        .stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5000),
+            SettingsRepository.DEFAULT_CALORIE_GOAL * DAYS_IN_WEEK
+        )
+
     val proteinGoal: StateFlow<Int> = settingsRepository.dailyProteinGoal
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 130)
 
@@ -95,12 +105,18 @@ class DashboardViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     @OptIn(ExperimentalCoroutinesApi::class)
+    val weekCaloriesTotal: StateFlow<Int> = dayTicker
+        .flatMapLatest { foodRepository.observeWeekCalories() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    /** Denní součty aktuálního týdne Po–Ne (budoucí dny = 0). */
+    @OptIn(ExperimentalCoroutinesApi::class)
     val weekCalories: StateFlow<List<Int>> = dayTicker
         .flatMapLatest {
             foodRepository.observeAllDesc().map { entries ->
-                val today = LocalDate.now()
-                (6 downTo 0).map { offset ->
-                    val day = today.minusDays(offset.toLong())
+                val monday = WeeklyGoal.weekStart(LocalDate.now())
+                (0..6).map { offset ->
+                    val day = monday.plusDays(offset.toLong())
                     entries
                         .filter { it.timestamp.toLocalDate() == day }
                         .sumOf { it.calories ?: 0 }
@@ -167,6 +183,10 @@ class DashboardViewModel @Inject constructor(
 
     fun deleteFact(id: Long) {
         viewModelScope.launch { factRepository.delete(id) }
+    }
+
+    companion object {
+        private const val DAYS_IN_WEEK = 7
     }
 }
 
