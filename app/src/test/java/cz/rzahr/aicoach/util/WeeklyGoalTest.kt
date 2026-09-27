@@ -38,6 +38,20 @@ class WeeklyGoalTest {
     }
 
     @Test
+    fun `expectedByDay je x-ty den krat denni cil`() {
+        assertEquals(2000, WeeklyGoal.expectedByDay(monday, 2000))
+        assertEquals(6000, WeeklyGoal.expectedByDay(wednesday, 2000))
+        assertEquals(14000, WeeklyGoal.expectedByDay(sunday, 2000))
+    }
+
+    @Test
+    fun `paceFraction je ocekavano lomeno tydenni cil`() {
+        assertEquals(3f / 7f, WeeklyGoal.paceFraction(wednesday, 2000, 14000), 0.001f)
+        assertEquals(1f, WeeklyGoal.paceFraction(sunday, 2000, 14000), 0.001f)
+        assertEquals(0f, WeeklyGoal.paceFraction(monday, 2000, 0), 0.001f)
+    }
+
+    @Test
     fun `weekStartMillis je pondeli 00_00 v dane zone`() {
         val zone = ZoneId.of("Europe/Prague")
         // Středa 12:00 → pondělí 00:00 téhož týdne.

@@ -51,7 +51,7 @@
     <string name="dashboard_today_overview">Dnešní přehled</string>
     <string name="dashboard_calories_week_label">Kalorie · tento týden</string>
     <string name="dashboard_weekly_goal_label">Týdenní cíl</string>
-    <string name="dashboard_weekly_eaten">%1$d / %2$d kcal</string>
+    <string name="dashboard_weekly_pace">Tempo: snědeno %1$d z očekávaných %2$d kcal</string>
     <string name="dashboard_weekly_remaining">Zbývá %1$d kcal do neděle (%2$d dní → ~%3$d kcal/den)</string>
     <string name="dashboard_weekly_over">Překročeno o %1$d kcal</string>
     <string name="stat_weight">Váha</string>
