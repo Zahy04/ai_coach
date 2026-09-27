@@ -41,6 +41,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -73,6 +74,7 @@ import cz.rzahr.aicoach.ui.components.bounceClick
 import cz.rzahr.aicoach.ui.components.heroGradient
 import cz.rzahr.aicoach.ui.navigation.Routes
 import cz.rzahr.aicoach.ui.theme.extendedColors
+import cz.rzahr.aicoach.util.WeeklyGoal
 import cz.rzahr.aicoach.util.formatDateTime
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -97,6 +99,8 @@ fun DashboardScreen(
     val workoutsTotal by viewModel.workoutsTotal.collectAsStateWithLifecycle()
     val photoCount by viewModel.photoCount.collectAsStateWithLifecycle()
     val weekCalories by viewModel.weekCalories.collectAsStateWithLifecycle()
+    val weekCaloriesTotal by viewModel.weekCaloriesTotal.collectAsStateWithLifecycle()
+    val weeklyGoal by viewModel.weeklyGoal.collectAsStateWithLifecycle()
     val today by viewModel.todayDate.collectAsStateWithLifecycle()
     val streakDays by viewModel.streakDays.collectAsStateWithLifecycle()
     val badges by viewModel.badges.collectAsStateWithLifecycle()
@@ -134,7 +138,9 @@ fun DashboardScreen(
                     calorieGoal = calorieGoal,
                     protein = todayProtein.toInt(),
                     proteinGoal = proteinGoal,
-                    weekCalories = weekCalories
+                    weekCalories = weekCalories,
+                    weekTotal = weekCaloriesTotal,
+                    weeklyGoal = weeklyGoal
                 )
             }
 
@@ -374,7 +380,9 @@ private fun HeroCard(
     calorieGoal: Int,
     protein: Int,
     proteinGoal: Int,
-    weekCalories: List<Int>
+    weekCalories: List<Int>,
+    weekTotal: Int,
+    weeklyGoal: Int
 ) {
     val ext = extendedColors()
     val animatedCalories by animateIntAsState(
@@ -387,14 +395,19 @@ private fun HeroCard(
         animationSpec = tween(durationMillis = 900),
         label = "countProtein"
     )
-    // Popisky přesně k datům, která nese weekCalories: posledních 7 dní končících
-    // dneškem (date). Dřív tu bylo natvrdo Po–Ne, takže dny neseděly.
-    val weekDayLabels = remember(date) {
+    // Popisky k datům weekCalories: aktuální týden Po–Ne (budoucí dny = 0).
+    val weekStart = remember(date) { WeeklyGoal.weekStart(date) }
+    val weekDayLabels = remember(weekStart) {
         val shortDay = DateTimeFormatter.ofPattern("EE", Locale.forLanguageTag("cs"))
-        (6 downTo 0).map { offset ->
-            date.minusDays(offset.toLong()).format(shortDay).replaceFirstChar { it.uppercase() }
+        (0..6).map { offset ->
+            weekStart.plusDays(offset.toLong()).format(shortDay).replaceFirstChar { it.uppercase() }
         }
     }
+    // Index dneška v týdnu Po–Ne (Po = 0 … Ne = 6).
+    val todayIndex = remember(date) { date.dayOfWeek.value - 1 }
+    // Týdenní rozpočet: kolik zbývá do neděle a kolik to dělá na den.
+    val weekRemaining = weeklyGoal - weekTotal
+    val daysLeft = remember(date) { WeeklyGoal.daysLeftIncludingToday(date) }
     Box(
         Modifier
             .fillMaxWidth()
@@ -450,7 +463,7 @@ private fun HeroCard(
             MiniBarChart(
                 values = weekCalories,
                 barColor = ext.calories,
-                todayIndex = weekCalories.lastIndex,
+                todayIndex = todayIndex,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp)
@@ -466,6 +479,43 @@ private fun HeroCard(
                     )
                 }
             }
+            Spacer(Modifier.height(14.dp))
+            Text(
+                stringResource(R.string.dashboard_weekly_goal_label),
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.7f)
+            )
+            Spacer(Modifier.height(4.dp))
+            Text(
+                stringResource(R.string.dashboard_weekly_eaten, weekTotal, weeklyGoal),
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White
+            )
+            Spacer(Modifier.height(8.dp))
+            LinearProgressIndicator(
+                progress = { if (weeklyGoal > 0) weekTotal.toFloat() / weeklyGoal else 0f },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(8.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+                color = ext.calories,
+                trackColor = Color.White.copy(alpha = 0.2f)
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(
+                if (weekRemaining >= 0) {
+                    stringResource(
+                        R.string.dashboard_weekly_remaining,
+                        weekRemaining,
+                        daysLeft,
+                        WeeklyGoal.perDayLeft(weekRemaining, daysLeft)
+                    )
+                } else {
+                    stringResource(R.string.dashboard_weekly_over, -weekRemaining)
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.75f)
+            )
         }
     }
 }

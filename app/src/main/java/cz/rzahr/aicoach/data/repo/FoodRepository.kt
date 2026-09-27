@@ -2,6 +2,7 @@ package cz.rzahr.aicoach.data.repo
 
 import cz.rzahr.aicoach.data.db.dao.FoodEntryDao
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
+import cz.rzahr.aicoach.util.WeeklyGoal
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
@@ -18,6 +19,10 @@ class FoodRepository @Inject constructor(
     fun observeTodayCalories(): Flow<Int> = dao.observeCaloriesSince(startOfToday())
 
     fun observeTodayProtein(): Flow<Double> = dao.observeProteinSince(startOfToday())
+
+    /** Kalorie snědené od pondělí 00:00 (týdenní cíl, issue #3). */
+    fun observeWeekCalories(): Flow<Int> =
+        dao.observeCaloriesSince(WeeklyGoal.weekStartMillis(System.currentTimeMillis()))
 
     suspend fun since(timestamp: Long): List<FoodEntryEntity> = dao.since(timestamp)
 

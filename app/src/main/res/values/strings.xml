@@ -50,7 +50,11 @@
     <!-- Dashboard -->
     <string name="dashboard_title">AI Coach</string>
     <string name="dashboard_today_overview">Today\'s overview</string>
-    <string name="dashboard_calories_week_label">Calories · last 7 days</string>
+    <string name="dashboard_calories_week_label">Calories · this week</string>
+    <string name="dashboard_weekly_goal_label">Weekly goal</string>
+    <string name="dashboard_weekly_eaten">%1$d / %2$d kcal</string>
+    <string name="dashboard_weekly_remaining">%1$d kcal left until Sunday (%2$d days → ~%3$d kcal/day)</string>
+    <string name="dashboard_weekly_over">Over by %1$d kcal</string>
     <string name="stat_weight">Weight</string>
     <string name="stat_weight_goal_left">goal %1$.1f kg · %2$.1f kg to go</string>
     <string name="stat_photos">Photos</string>
