@@ -71,13 +71,21 @@ class OpenRouterClientTest {
     }
 
     @Test
-    fun `razeni modelu qwen prvni pak muse pak free`() {
+    fun `razeni modelu qwen pak google pak muse pak free`() {
         val sorted = OpenRouterClient.sortModels(
-            listOf("openai/gpt-4o", "meta/muse-spark-1.3", "zzz/model:free", "qwen/qwen3.8-27b:free", "meta/muse-spark-1.3-contributor")
+            listOf(
+                "openai/gpt-4o",
+                "google/gemini-2.5-flash",
+                "meta/muse-spark-1.3",
+                "zzz/model:free",
+                "qwen/qwen3.8-27b:free",
+                "meta/muse-spark-1.3-contributor"
+            )
         )
         assertEquals(
             listOf(
                 "qwen/qwen3.8-27b:free",
+                "google/gemini-2.5-flash",
                 "meta/muse-spark-1.3-contributor",
                 "meta/muse-spark-1.3",
                 "zzz/model:free",

@@ -366,14 +366,15 @@ class OpenRouterClient @Inject constructor(
                 .distinct()
                 .let(::sortModels)
 
-        /** qwen3.8-27b:free první, pak Muse Spark, pak ostatní free, pak zbytek. */
+        /** qwen3.8-27b:free první, pak modely Googlu (Gemini/Gemma), pak Muse Spark, pak ostatní free, pak zbytek. */
         internal fun sortModels(names: List<String>): List<String> {
             fun rank(name: String): Int = when {
                 name == DEFAULT_MODEL -> 0
-                name == MUSE_CONTRIBUTOR -> 1
-                name == MUSE_FULL -> 2
-                name.endsWith(":free") -> 3
-                else -> 4
+                name.startsWith("google/") -> 1
+                name == MUSE_CONTRIBUTOR -> 2
+                name == MUSE_FULL -> 3
+                name.endsWith(":free") -> 4
+                else -> 5
             }
             return names.sortedWith(compareBy({ n: String -> rank(n) }, { n: String -> n }))
         }
