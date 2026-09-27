@@ -86,6 +86,8 @@
     <string name="chat_clear_confirm_text">Messages will be removed from the chat only. Saved data (weight, food, notes) stays.</string>
     <string name="chat_missing_key_title">Missing Gemini API key</string>
     <string name="chat_missing_key_body">Chat won\'t work without a key. Get one for free at aistudio.google.com.</string>
+    <string name="chat_missing_key_title_or">Missing OpenRouter API key</string>
+    <string name="chat_missing_key_body_or">Chat won\'t work without a key. Get one for free at openrouter.ai (the default qwen3.8-27b model is free).</string>
     <string name="chat_open_settings">Open settings</string>
     <string name="chat_empty_hint">Tell me what you ate today or how you trained.\nE.g. “I had oatmeal with banana for breakfast and I weigh 78 kg.”</string>
     <string name="chat_typing">Coach is typing…</string>
@@ -189,7 +191,11 @@
 
     <!-- Settings -->
     <string name="settings_section_coach">Coach</string>
+    <string name="settings_provider_label">AI provider</string>
+    <string name="settings_provider_gemini">Gemini</string>
+    <string name="settings_provider_openrouter">OpenRouter</string>
     <string name="settings_gemini_api">Gemini API</string>
+    <string name="settings_openrouter_api">OpenRouter API</string>
     <string name="settings_new_api_key">New API key</string>
     <string name="settings_model">Model</string>
     <string name="settings_load_models">Load models</string>
@@ -239,6 +245,7 @@
     <string name="settings_help_section">Help</string>
     <string name="settings_howto_title">How to get an API key</string>
     <string name="settings_howto_body">1. Go to aistudio.google.com and sign in with your Google account.\n2. Create an API key (Create API key).\n3. Paste the key into the API key field above.\n\nGemini has a free tier that is plenty for regular chat use.</string>
+    <string name="settings_howto_body_openrouter">1. Go to openrouter.ai and sign up (no credit card needed).\n2. Create an API key in the Keys section.\n3. Paste the key into the API key field above.\n\nThe default qwen3.8-27b model is free (50 messages/day, 1000/day after a one-time $10 top-up).</string>
 
     <!-- GitHub issues -->
     <string name="gh_pat_blank">GitHub token missing. Add it in Settings above.</string>

@@ -9,7 +9,7 @@ import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
-import cz.rzahr.aicoach.llm.GeminiClient
+import cz.rzahr.aicoach.llm.LlmRouter
 import cz.rzahr.aicoach.llm.ModelFilters
 import cz.rzahr.aicoach.llm.PromptBuilder
 import cz.rzahr.aicoach.util.formatDate
@@ -28,20 +28,24 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 @HiltViewModel
 class ChatViewModel @Inject constructor(
     private val chatRepository: ChatRepository,
-    private val geminiClient: GeminiClient,
+    private val llmRouter: LlmRouter,
     private val promptBuilder: PromptBuilder,
     private val foodRepository: FoodRepository,
     private val weightRepository: WeightRepository,
     private val workoutRepository: WorkoutRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
+
+    val provider: StateFlow<String> = settingsRepository.provider
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.PROVIDER_GEMINI)
 
     val model: StateFlow<String> = settingsRepository.model
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
@@ -67,8 +71,8 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ModelFilters.DEFAULT_FAMILIES)
 
-    /** Stejný filtr jako v Nastavení – dropdown v chatu ukazuje jen vybrané modely. */
-    val availableModels: StateFlow<List<String>> = combine(
+    /** Gemini rodinný filtr (OpenRouter ho nepoužívá). */
+    private val geminiFilteredModels: StateFlow<List<String>> = combine(
         _allModels,
         filterModels,
         enabledFamilies,
@@ -78,6 +82,27 @@ class ChatViewModel @Inject constructor(
         if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Stejný filtr jako v Nastavení – dropdown v chatu ukazuje jen vybrané modely.
+     *  Pro OpenRouter se rodinný filtr nepoužije (platí jen skryté modely). */
+    val availableModels: StateFlow<List<String>> = combine(
+        _allModels,
+        settingsRepository.hiddenModels,
+        provider,
+        geminiFilteredModels
+    ) { all, hidden, prov, geminiFiltered ->
+        if (prov == SettingsRepository.PROVIDER_OPENROUTER) all.filter { it !in hidden } else geminiFiltered
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    init {
+        // Po přepnutí providera je seznam modelů neplatný – přenačíst.
+        viewModelScope.launch {
+            settingsRepository.provider.drop(1).collect {
+                _allModels.value = emptyList()
+                if (llmRouter.activeApiKey().isNotBlank()) loadModels()
+            }
+        }
+    }
+
     private val _modelsLoading = MutableStateFlow(false)
     val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
 
@@ -86,7 +111,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _modelsLoading.value = true
             try {
-                val fresh = geminiClient.fetchModelNames()
+                val fresh = llmRouter.fetchModelNames()
                 _allModels.value = fresh
                 settingsRepository.pruneModelOverrides(fresh.toSet())
             } catch (_: Exception) {
@@ -98,15 +123,21 @@ class ChatViewModel @Inject constructor(
     }
 
     fun selectModel(model: String) {
-        viewModelScope.launch { settingsRepository.setModel(model) }
+        viewModelScope.launch {
+            settingsRepository.setModel(model, settingsRepository.provider.first())
+        }
     }
 
     val messages: StateFlow<List<ChatMessageEntity>> = chatRepository.observeMessages()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val hasApiKey: StateFlow<Boolean> = settingsRepository.apiKey
-        .map { it.isNotBlank() }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
+    val hasApiKey: StateFlow<Boolean> = combine(
+        provider,
+        settingsRepository.apiKey,
+        settingsRepository.openRouterApiKey
+    ) { prov, geminiKey, openRouterKey ->
+        (if (prov == SettingsRepository.PROVIDER_OPENROUTER) openRouterKey else geminiKey).isNotBlank()
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _sending = MutableStateFlow(false)
     val sending: StateFlow<Boolean> = _sending.asStateFlow()
@@ -271,7 +302,7 @@ class ChatViewModel @Inject constructor(
         try {
             val history = chatRepository.historyContents(HISTORY_LIMIT)
             val systemPrompt = promptBuilder.build()
-            val result = geminiClient.chat(systemPrompt, history) { delta ->
+            val result = llmRouter.chat(systemPrompt, history) { delta ->
                 _streamingText.value = (_streamingText.value ?: "") + delta
             }
             chatRepository.addModelMessage(result.reply)

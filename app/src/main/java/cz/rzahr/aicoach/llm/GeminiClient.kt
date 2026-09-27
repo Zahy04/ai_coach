@@ -19,7 +19,6 @@ import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.doubleOrNull
 import kotlinx.serialization.json.longOrNull
-import kotlin.random.Random
 import okhttp3.Call
 import okhttp3.Callback
 import okhttp3.MediaType.Companion.toMediaType
@@ -42,12 +41,12 @@ class GeminiClient @Inject constructor(
     private val json: Json,
     private val settings: SettingsRepository,
     private val toolExecutor: ToolExecutor
-) {
+) : LlmClient {
 
-    suspend fun chat(
+    override suspend fun chat(
         systemPrompt: String,
         history: List<Content>,
-        onDelta: suspend (String) -> Unit = {}
+        onDelta: suspend (String) -> Unit
     ): ChatTurnResult = withContext(Dispatchers.IO) {
         val apiKey = settings.apiKey.first()
         if (apiKey.isBlank()) {
@@ -149,7 +148,7 @@ class GeminiClient @Inject constructor(
                 val errorText = response.use { it.body?.string().orEmpty() }
                 val retryable = response.code == 429 || response.code == 503
                 if (retryable && attempt < MAX_RETRIES - 1) {
-                    val wait = computeRetryDelayMs(attempt, errorText, retryAfterHeader)
+                    val wait = RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfterHeader)
                     Log.w(TAG, "request 429/503 – retry ${attempt + 1}/$MAX_RETRIES za ${wait}ms")
                     delay(wait)
                     attempt++
@@ -297,7 +296,7 @@ class GeminiClient @Inject constructor(
         return cleaned.ifBlank { SettingsRepository.DEFAULT_MODEL }
     }
 
-    suspend fun fetchModelNames(): List<String> = withContext(Dispatchers.IO) {
+    override suspend fun fetchModelNames(): List<String> = withContext(Dispatchers.IO) {
         val apiKey = settings.apiKey.first()
         if (apiKey.isBlank()) throw GeminiException("Chybí API klíč. Zadej ho v Nastavení.")
         val request = Request.Builder()
@@ -366,37 +365,10 @@ class GeminiClient @Inject constructor(
         private const val BASE_URL = "https://generativelanguage.googleapis.com/v1beta/models"
         private const val MAX_TOOL_ROUNDS = 6
         private const val MAX_RETRIES = 6
-        private const val RETRY_BASE_DELAY_MS = 2000L
         private const val CHAT_TEMPERATURE = 0.3f
         private val EXCLUDED_MODEL_SUBSTRINGS = listOf(
             "embedding", "embed", "imagen", "image", "tts", "speech",
             "veo", "video", "audio", "aqua", "lyria", "music"
         )
-
-        /** Gemini v 429 často posílá "retryDelay": "23s" — respektujeme ho. */
-        private val RETRY_DELAY_REGEX = Regex("\"retryDelay\":\\s*\"(\\d+)s\"")
-
-        /**
-         * Pauza před dalším pokusem při 429/503 (issue #2).
-         * Přednost má serverem navržená pauza – "retryDelay" v JSON těle,
-         * jinak Retry-After hlavička (sekundy), jinak exponenciální backoff + jitter.
-         * Čistá funkce – testovatelná bez sítě.
-         */
-        internal fun computeRetryDelayMs(
-            attempt: Int,
-            errorText: String,
-            retryAfterHeader: String?,
-            jitterMs: Long = Random.nextLong(0L, 1000L)
-        ): Long {
-            val serverWaitMs = RETRY_DELAY_REGEX.find(errorText)
-                ?.groupValues?.getOrNull(1)?.toLongOrNull()?.times(1000L)
-                ?: retryAfterHeader?.let { parseRetryAfterMs(it) }
-            val backoffMs = RETRY_BASE_DELAY_MS * (1L shl attempt)
-            return (serverWaitMs ?: (backoffMs + jitterMs)).coerceIn(1000L, 90_000L)
-        }
-
-        /** Retry-After v sekundách; HTTP-date formát nepodporujeme (server posílá sekundy). */
-        internal fun parseRetryAfterMs(value: String): Long? =
-            value.trim().toLongOrNull()?.times(1000L)?.takeIf { it >= 0 }
     }
 }

@@ -84,6 +84,7 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
+import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.ui.theme.TextPrimaryDark
 import cz.rzahr.aicoach.util.formatTime
 import cz.rzahr.aicoach.util.toLocalDate
@@ -122,6 +123,7 @@ fun ChatScreen(
     val sending by viewModel.sending.collectAsStateWithLifecycle()
     val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
+    val provider by viewModel.provider.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val pendingImagePath by viewModel.pendingImagePath.collectAsStateWithLifecycle()
     val currentModel by viewModel.model.collectAsStateWithLifecycle()
@@ -291,7 +293,10 @@ fun ChatScreen(
                 .imePadding()
         ) {
             if (!hasApiKey) {
-                ApiKeyMissingBanner(onOpenSettings = onOpenSettings)
+                ApiKeyMissingBanner(
+                    isOpenRouter = provider == SettingsRepository.PROVIDER_OPENROUTER,
+                    onOpenSettings = onOpenSettings
+                )
             }
             error?.let { message ->
                 ErrorBanner(
@@ -430,7 +435,7 @@ private fun CoachAvatar(modifier: Modifier = Modifier) {
 }
 
 @Composable
-private fun ApiKeyMissingBanner(onOpenSettings: () -> Unit) {
+private fun ApiKeyMissingBanner(isOpenRouter: Boolean, onOpenSettings: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -439,13 +444,17 @@ private fun ApiKeyMissingBanner(onOpenSettings: () -> Unit) {
     ) {
         Column(Modifier.padding(16.dp)) {
             Text(
-                stringResource(R.string.chat_missing_key_title),
+                stringResource(
+                    if (isOpenRouter) R.string.chat_missing_key_title_or else R.string.chat_missing_key_title
+                ),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )
             Spacer(Modifier.size(4.dp))
             Text(
-                stringResource(R.string.chat_missing_key_body),
+                stringResource(
+                    if (isOpenRouter) R.string.chat_missing_key_body_or else R.string.chat_missing_key_body
+                ),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onPrimaryContainer
             )

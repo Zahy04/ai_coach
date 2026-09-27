@@ -59,6 +59,7 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.ui.components.SectionHeader
+import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.llm.ModelFilters
 import kotlinx.coroutines.launch
 
@@ -69,6 +70,8 @@ fun SettingsScreen(
     viewModel: SettingsViewModel = hiltViewModel()
 ) {
     val apiKey by viewModel.apiKey.collectAsStateWithLifecycle()
+    val openRouterApiKey by viewModel.openRouterApiKey.collectAsStateWithLifecycle()
+    val provider by viewModel.provider.collectAsStateWithLifecycle()
     val model by viewModel.model.collectAsStateWithLifecycle()
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
     val proteinGoal by viewModel.proteinGoal.collectAsStateWithLifecycle()
@@ -118,8 +121,9 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(apiKey, totalModelsCount) {
-        if (apiKey.isNotBlank() && totalModelsCount == 0) {
+    LaunchedEffect(provider, apiKey, openRouterApiKey, totalModelsCount) {
+        val activeKey = if (provider == SettingsRepository.PROVIDER_OPENROUTER) openRouterApiKey else apiKey
+        if (activeKey.isNotBlank() && totalModelsCount == 0) {
             viewModel.loadModels()
         }
     }
@@ -148,11 +152,38 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_coach))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_gemini_api), style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.settings_provider_label), style = MaterialTheme.typography.titleMedium)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        val isGemini = provider != SettingsRepository.PROVIDER_OPENROUTER
+                        FilterChip(
+                            selected = isGemini,
+                            onClick = {
+                                viewModel.setProvider(SettingsRepository.PROVIDER_GEMINI)
+                                modelInput = SettingsRepository.defaultModelFor(SettingsRepository.PROVIDER_GEMINI)
+                                newKeyInput = ""
+                            },
+                            label = { Text(stringResource(R.string.settings_provider_gemini)) }
+                        )
+                        FilterChip(
+                            selected = !isGemini,
+                            onClick = {
+                                viewModel.setProvider(SettingsRepository.PROVIDER_OPENROUTER)
+                                modelInput = SettingsRepository.defaultModelFor(SettingsRepository.PROVIDER_OPENROUTER)
+                                newKeyInput = ""
+                            },
+                            label = { Text(stringResource(R.string.settings_provider_openrouter)) }
+                        )
+                    }
+                    val isOpenRouter = provider == SettingsRepository.PROVIDER_OPENROUTER
+                    val activeKey = if (isOpenRouter) openRouterApiKey else apiKey
                     Text(
-                        if (apiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
+                        if (isOpenRouter) stringResource(R.string.settings_openrouter_api) else stringResource(R.string.settings_gemini_api),
+                        style = MaterialTheme.typography.titleMedium
+                    )
+                    Text(
+                        if (activeKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (apiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        color = if (activeKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                     OutlinedTextField(
                         value = newKeyInput,
@@ -227,7 +258,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    if (filterModels) {
+                    if (filterModels && !isOpenRouter) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -291,7 +322,12 @@ fun SettingsScreen(
                     Button(
                         onClick = {
                             val savedWithKey = newKeyInput.isNotBlank()
-                            viewModel.save(modelInput.orEmpty(), newKeyInput.takeIf { it.isNotBlank() })
+                            viewModel.save(
+                                provider,
+                                modelInput.orEmpty(),
+                                newGeminiKey = newKeyInput.takeIf { it.isNotBlank() && !isOpenRouter },
+                                newOpenRouterKey = newKeyInput.takeIf { it.isNotBlank() && isOpenRouter }
+                            )
                             scope.launch { snackbarHostState.showSnackbar(if (savedWithKey) savedMsg else modelOnlyMsg) }
                             newKeyInput = ""
                         },
@@ -424,7 +460,11 @@ fun SettingsScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.settings_howto_title), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        stringResource(R.string.settings_howto_body),
+                        if (provider == SettingsRepository.PROVIDER_OPENROUTER) {
+                            stringResource(R.string.settings_howto_body_openrouter)
+                        } else {
+                            stringResource(R.string.settings_howto_body)
+                        },
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

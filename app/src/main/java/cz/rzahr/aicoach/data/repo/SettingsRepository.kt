@@ -22,6 +22,8 @@ class SettingsRepository @Inject constructor(
 ) {
 
     private val keyApiKey = stringPreferencesKey("gemini_api_key")
+    private val keyOpenRouterApiKey = stringPreferencesKey("openrouter_api_key")
+    private val keyProvider = stringPreferencesKey("llm_provider")
     private val keyModel = stringPreferencesKey("model")
     private val keyCalorieGoal = intPreferencesKey("daily_calorie_goal")
     private val keyProteinGoal = intPreferencesKey("daily_protein_goal")
@@ -72,6 +74,30 @@ class SettingsRepository @Inject constructor(
     }
 
     val apiKey: Flow<String> = context.dataStore.data.map { it[keyApiKey].orEmpty() }
+
+    val openRouterApiKey: Flow<String> =
+        context.dataStore.data.map { it[keyOpenRouterApiKey].orEmpty() }
+
+    /** Aktivní provider: "gemini" (default, zpětná kompatibilita) nebo "openrouter". */
+    val provider: Flow<String> =
+        context.dataStore.data.map { it[keyProvider] ?: PROVIDER_GEMINI }
+
+    suspend fun setProvider(value: String) {
+        val clean = if (value == PROVIDER_OPENROUTER) PROVIDER_OPENROUTER else PROVIDER_GEMINI
+        context.dataStore.edit {
+            it[keyProvider] = clean
+            // Při přepnutí providera rovnou defaultní model, ať nezůstane
+            // uložený model druhého providera (ten by vracel 404).
+            if (it[keyModel].isNullOrBlank() || !modelBelongsToProvider(it[keyModel].orEmpty(), clean)) {
+                it[keyModel] = defaultModelFor(clean)
+            }
+        }
+    }
+
+    private fun modelBelongsToProvider(model: String, provider: String): Boolean {
+        val openRouterLike = model.contains('/')
+        return if (provider == PROVIDER_OPENROUTER) openRouterLike else !openRouterLike
+    }
 
     val model: Flow<String> = context.dataStore.data.map { it[keyModel] ?: DEFAULT_MODEL }
 
@@ -166,8 +192,12 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { it[keyApiKey] = value.trim() }
     }
 
-    suspend fun setModel(value: String) {
-        context.dataStore.edit { it[keyModel] = value.trim().ifBlank { DEFAULT_MODEL } }
+    suspend fun setOpenRouterApiKey(value: String) {
+        context.dataStore.edit { it[keyOpenRouterApiKey] = value.trim() }
+    }
+
+    suspend fun setModel(value: String, provider: String = PROVIDER_GEMINI) {
+        context.dataStore.edit { it[keyModel] = value.trim().ifBlank { defaultModelFor(provider) } }
     }
 
     suspend fun setDailyCalorieGoal(value: Int) {
@@ -179,7 +209,13 @@ class SettingsRepository @Inject constructor(
     }
 
     companion object {
+        const val PROVIDER_GEMINI = "gemini"
+        const val PROVIDER_OPENROUTER = "openrouter"
         const val DEFAULT_MODEL = "gemini-3.6-flash-lite"
+        const val DEFAULT_OPENROUTER_MODEL = "qwen/qwen3.8-27b:free"
+
+        fun defaultModelFor(provider: String): String =
+            if (provider == PROVIDER_OPENROUTER) DEFAULT_OPENROUTER_MODEL else DEFAULT_MODEL
         const val DEFAULT_FILTER_MODELS = true
         const val DEFAULT_FILTER_FAMILY_PRO = true
         const val DEFAULT_FILTER_FAMILY_FLASH = true

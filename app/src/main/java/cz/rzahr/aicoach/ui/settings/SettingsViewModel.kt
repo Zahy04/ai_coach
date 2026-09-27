@@ -4,7 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cz.rzahr.aicoach.data.repo.GitHubIssueRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
-import cz.rzahr.aicoach.llm.GeminiClient
+import cz.rzahr.aicoach.llm.LlmRouter
 import cz.rzahr.aicoach.llm.ModelFilters
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -20,7 +21,7 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
-    private val geminiClient: GeminiClient,
+    private val llmRouter: LlmRouter,
     private val gitHubIssueRepository: GitHubIssueRepository
 ) : ViewModel() {
 
@@ -52,6 +53,12 @@ class SettingsViewModel @Inject constructor(
 
     val apiKey: StateFlow<String> = settingsRepository.apiKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val openRouterApiKey: StateFlow<String> = settingsRepository.openRouterApiKey
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val provider: StateFlow<String> = settingsRepository.provider
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.PROVIDER_GEMINI)
 
     val model: StateFlow<String> = settingsRepository.model
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
@@ -108,28 +115,52 @@ class SettingsViewModel @Inject constructor(
         _allModels.map(ModelFilters::countByFamily)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    /** Filtrovaný seznam podle checkboxů + jednotlivých modelů; bez filtru plný seznam z API. */
-    val availableModels: StateFlow<List<String>> =
+    /** Gemini rodinný filtr (OpenRouter ho nepoužívá). */
+    private val geminiFilteredModels: StateFlow<List<String>> =
         combine(_allModels, filterModels, enabledFamilies, hiddenModels, shownModels) { all, filter, families, hidden, shown ->
             if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Filtrovaný seznam podle checkboxů + jednotlivých modelů; bez filtru plný seznam z API.
+     *  Pro OpenRouter se rodinný filtr nepoužije (platí jen skryté modely). */
+    val availableModels: StateFlow<List<String>> =
+        combine(_allModels, hiddenModels, provider, geminiFilteredModels) { all, hidden, prov, geminiFiltered ->
+            if (prov == SettingsRepository.PROVIDER_OPENROUTER) all.filter { it !in hidden } else geminiFiltered
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     /** Viditelnost jednotlivých modelů nezávisle na hlavním vypínači (dialog Spravovat modely). */
     val modelVisibility: StateFlow<Map<String, Boolean>> =
-        combine(_allModels, enabledFamilies, hiddenModels, shownModels) { all, families, hidden, shown ->
-            all.associateWith { ModelFilters.isVisibleBySelection(it, families, hidden, shown) }
+        combine(_allModels, enabledFamilies, hiddenModels, shownModels, provider) { all, families, hidden, shown, prov ->
+            if (prov == SettingsRepository.PROVIDER_OPENROUTER) {
+                all.associateWith { it !in hidden }
+            } else {
+                all.associateWith { ModelFilters.isVisibleBySelection(it, families, hidden, shown) }
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _modelsLoading = MutableStateFlow(false)
     val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
 
-    /** Uloží model vždy; API klíč jen když uživatel napsal nový (prázdné = ponechat). */
-    fun save(model: String, newApiKey: String?) {
+    /** Uloží provider + model vždy; klíče jen když uživatel napsal nové (prázdné = ponechat). */
+    fun save(provider: String, model: String, newGeminiKey: String?, newOpenRouterKey: String?) {
         viewModelScope.launch {
-            if (!newApiKey.isNullOrBlank()) {
-                settingsRepository.setApiKey(newApiKey)
+            settingsRepository.setProvider(provider)
+            if (!newGeminiKey.isNullOrBlank()) {
+                settingsRepository.setApiKey(newGeminiKey)
             }
-            settingsRepository.setModel(model)
+            if (!newOpenRouterKey.isNullOrBlank()) {
+                settingsRepository.setOpenRouterApiKey(newOpenRouterKey)
+            }
+            settingsRepository.setModel(model, settingsRepository.provider.first())
+        }
+    }
+
+    /** Přepne providera, nastaví jeho defaultní model a přenačte seznam modelů. */
+    fun setProvider(value: String) {
+        viewModelScope.launch {
+            settingsRepository.setProvider(value)
+            _allModels.value = emptyList()
+            loadModels()
         }
     }
 
@@ -185,7 +216,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _modelsLoading.value = true
             try {
-                val fresh = geminiClient.fetchModelNames()
+                val fresh = llmRouter.fetchModelNames()
                 _allModels.value = fresh
                 settingsRepository.pruneModelOverrides(fresh.toSet())
             } catch (_: Exception) {

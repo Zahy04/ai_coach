@@ -85,6 +85,8 @@
     <string name="chat_clear_confirm_text">Zprávy se smažou pouze z chatu. Uložená data (váha, jídlo, poznámky) zůstanou.</string>
     <string name="chat_missing_key_title">Chybí Gemini API klíč</string>
     <string name="chat_missing_key_body">Bez klíče chat nefunguje. Zdarma ho získáš na aistudio.google.com.</string>
+    <string name="chat_missing_key_title_or">Chybí OpenRouter API klíč</string>
+    <string name="chat_missing_key_body_or">Bez klíče chat nefunguje. Zdarma ho získáš na openrouter.ai (výchozí model qwen3.8-27b je zdarma).</string>
     <string name="chat_open_settings">Otevřít nastavení</string>
     <string name="chat_empty_hint">Napiš mi, co jsi dnes jedl nebo jak jsi cvičil.\nTřeba: „K snídani jsem měl ovesnou kaši a vážím 78 kg.“</string>
     <string name="chat_typing">Trenér píše…</string>
@@ -188,7 +190,11 @@
 
     <!-- Settings -->
     <string name="settings_section_coach">Trenér</string>
+    <string name="settings_provider_label">AI provider</string>
+    <string name="settings_provider_gemini">Gemini</string>
+    <string name="settings_provider_openrouter">OpenRouter</string>
     <string name="settings_gemini_api">Gemini API</string>
+    <string name="settings_openrouter_api">OpenRouter API</string>
     <string name="settings_new_api_key">Nový API klíč</string>
     <string name="settings_model">Model</string>
     <string name="settings_load_models">Načíst modely</string>
@@ -238,6 +244,7 @@
     <string name="settings_help_section">Nápověda</string>
     <string name="settings_howto_title">Jak získat API klíč</string>
     <string name="settings_howto_body">1. Jdi na aistudio.google.com a přihlas se Google účtem.\n2. Vytvoř API klíč (Create API key).\n3. Klíč vlož sem do pole API klíč.\n\nGemini má volný tier, který pro běžné použití chatu bohatě stačí.</string>
+    <string name="settings_howto_body_openrouter">1. Jdi na openrouter.ai a zaregistruj se (není potřeba karta).\n2. V sekci Keys si vytvoř API klíč.\n3. Klíč vlož sem do pole API klíč.\n\nVýchozí model qwen3.8-27b je zdarma (50 zpráv/den, 1000/den po jednorázovém nabití $10).</string>
 
     <!-- GitHub issues -->
     <string name="gh_pat_blank">GitHub token chybí. Vlož ho výše v Nastavení.</string>
