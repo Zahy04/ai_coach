@@ -25,6 +25,14 @@ object WeeklyGoal {
     fun perDayLeft(remainingKcal: Int, daysLeft: Int): Int =
         if (daysLeft > 0) remainingKcal / daysLeft else 0
 
+    /** Kolik kcal by k danému dni mělo být snědeno při rovnoměrném tempu (x-tý den → x × denní). */
+    fun expectedByDay(date: LocalDate, dailyGoal: Int): Int =
+        date.dayOfWeek.value * dailyGoal
+
+    /** Pozice značky tempa na týdenním koláči 0..1 (očekáváno / týdenní cíl). */
+    fun paceFraction(date: LocalDate, dailyGoal: Int, weeklyGoal: Int): Float =
+        if (weeklyGoal > 0) expectedByDay(date, dailyGoal).toFloat() / weeklyGoal else 0f
+
     /** Začátek týdne (pondělí 00:00) v epoch-milisekundách – pro DAO dotazy. */
     fun weekStartMillis(now: Long, zone: ZoneId = ZoneId.systemDefault()): Long =
         weekStart(

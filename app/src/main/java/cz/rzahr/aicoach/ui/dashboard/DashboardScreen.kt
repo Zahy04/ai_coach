@@ -41,7 +41,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -485,23 +484,28 @@ private fun HeroCard(
                 style = MaterialTheme.typography.labelSmall,
                 color = Color.White.copy(alpha = 0.7f)
             )
-            Spacer(Modifier.height(4.dp))
-            Text(
-                stringResource(R.string.dashboard_weekly_eaten, weekTotal, weeklyGoal),
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White
-            )
             Spacer(Modifier.height(8.dp))
-            LinearProgressIndicator(
-                progress = { if (weeklyGoal > 0) weekTotal.toFloat() / weeklyGoal else 0f },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp)),
-                color = ext.calories,
-                trackColor = Color.White.copy(alpha = 0.2f)
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                GlowProgressRing(
+                    progress = if (weeklyGoal > 0) weekTotal.toFloat() / weeklyGoal else 0f,
+                    value = "$weekTotal",
+                    label = stringResource(R.string.ring_kcal_goal, weeklyGoal),
+                    ringColor = ext.calories,
+                    trackColor = Color.White.copy(alpha = 0.2f),
+                    markerProgress = WeeklyGoal.paceFraction(date, calorieGoal, weeklyGoal)
+                )
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(
+                    R.string.dashboard_weekly_pace,
+                    weekTotal,
+                    WeeklyGoal.expectedByDay(date, calorieGoal)
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = Color.White.copy(alpha = 0.75f)
             )
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(4.dp))
             Text(
                 if (weekRemaining >= 0) {
                     stringResource(
