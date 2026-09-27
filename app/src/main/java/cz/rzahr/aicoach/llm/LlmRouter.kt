@@ -31,6 +31,26 @@ class LlmRouter @Inject constructor(
 
     override suspend fun fetchModelNames(): List<String> = active().fetchModelNames()
 
+    /**
+     * Jednotný seznam pro výběr: z OpenRouteru jen qwen (vlajková loď),
+     * pak modely z Gemini API. Každý provider se ptá jen když má klíč
+     * (bez klíče jeho fetch hodí a daná část seznamu je prázdná).
+     */
+    suspend fun fetchUnifiedModels(): List<String> {
+        val openRouterModels = try {
+            openRouter.fetchModelNames()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val geminiModels = try {
+            gemini.fetchModelNames()
+        } catch (_: Exception) {
+            emptyList()
+        }
+        val qwen = openRouterModels.filter { it == SettingsRepository.DEFAULT_OPENROUTER_MODEL }
+        return qwen + geminiModels
+    }
+
     /** API klíč aktivního providera (pro kontrolu vyplněnosti). */
     suspend fun activeApiKey(): String {
         return if (settings.provider.first() == SettingsRepository.PROVIDER_OPENROUTER) {

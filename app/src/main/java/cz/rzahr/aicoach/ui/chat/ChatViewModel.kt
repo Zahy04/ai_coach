@@ -28,8 +28,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.drop
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -43,9 +41,6 @@ class ChatViewModel @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val settingsRepository: SettingsRepository
 ) : ViewModel() {
-
-    val provider: StateFlow<String> = settingsRepository.provider
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.PROVIDER_GEMINI)
 
     val model: StateFlow<String> = settingsRepository.model
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
@@ -71,37 +66,18 @@ class ChatViewModel @Inject constructor(
         }
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), ModelFilters.DEFAULT_FAMILIES)
 
-    /** Gemini rodinný filtr (OpenRouter ho nepoužívá). */
-    private val geminiFilteredModels: StateFlow<List<String>> = combine(
+    /** Stejný filtr jako v Nastavení – dropdown v chatu ukazuje jen vybrané modely.
+     *  Qwen (OpenRouter) je vždy první, Gemini modely dle rodinného filtru. */
+    val availableModels: StateFlow<List<String>> = combine(
         _allModels,
         filterModels,
         enabledFamilies,
         settingsRepository.hiddenModels,
         settingsRepository.shownModels
     ) { all, filter, families, hidden, shown ->
-        if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
+        val base = if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
+        ModelFilters.pinQwenFirst(base, all, hidden)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    /** Stejný filtr jako v Nastavení – dropdown v chatu ukazuje jen vybrané modely.
-     *  Pro OpenRouter se rodinný filtr nepoužije (platí jen skryté modely). */
-    val availableModels: StateFlow<List<String>> = combine(
-        _allModels,
-        settingsRepository.hiddenModels,
-        provider,
-        geminiFilteredModels
-    ) { all, hidden, prov, geminiFiltered ->
-        if (prov == SettingsRepository.PROVIDER_OPENROUTER) all.filter { it !in hidden } else geminiFiltered
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    init {
-        // Po přepnutí providera je seznam modelů neplatný – přenačíst.
-        viewModelScope.launch {
-            settingsRepository.provider.drop(1).collect {
-                _allModels.value = emptyList()
-                if (llmRouter.activeApiKey().isNotBlank()) loadModels()
-            }
-        }
-    }
 
     private val _modelsLoading = MutableStateFlow(false)
     val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
@@ -111,7 +87,7 @@ class ChatViewModel @Inject constructor(
         viewModelScope.launch {
             _modelsLoading.value = true
             try {
-                val fresh = llmRouter.fetchModelNames()
+                val fresh = llmRouter.fetchUnifiedModels()
                 _allModels.value = fresh
                 settingsRepository.pruneModelOverrides(fresh.toSet())
             } catch (_: Exception) {
@@ -122,21 +98,21 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    /** Výběr modelu zároveň přepne providera (qwen → OpenRouter, jinak Gemini). */
     fun selectModel(model: String) {
-        viewModelScope.launch {
-            settingsRepository.setModel(model, settingsRepository.provider.first())
-        }
+        viewModelScope.launch { settingsRepository.setModelAndProvider(model) }
     }
 
     val messages: StateFlow<List<ChatMessageEntity>> = chatRepository.observeMessages()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Klíč se kontroluje podle vybraného modelu (qwen → OpenRouter, jinak Gemini). */
     val hasApiKey: StateFlow<Boolean> = combine(
-        provider,
+        model,
         settingsRepository.apiKey,
         settingsRepository.openRouterApiKey
-    ) { prov, geminiKey, openRouterKey ->
-        (if (prov == SettingsRepository.PROVIDER_OPENROUTER) openRouterKey else geminiKey).isNotBlank()
+    ) { currentModel, geminiKey, openRouterKey ->
+        (if ('/' in currentModel) openRouterKey else geminiKey).isNotBlank()
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val _sending = MutableStateFlow(false)

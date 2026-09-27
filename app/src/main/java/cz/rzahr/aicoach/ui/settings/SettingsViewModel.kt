@@ -13,7 +13,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -56,9 +55,6 @@ class SettingsViewModel @Inject constructor(
 
     val openRouterApiKey: StateFlow<String> = settingsRepository.openRouterApiKey
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
-
-    val provider: StateFlow<String> = settingsRepository.provider
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.PROVIDER_GEMINI)
 
     val model: StateFlow<String> = settingsRepository.model
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SettingsRepository.DEFAULT_MODEL)
@@ -121,46 +117,31 @@ class SettingsViewModel @Inject constructor(
             if (filter) ModelFilters.filterBySelection(all, families, hidden, shown) else all
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    /** Filtrovaný seznam podle checkboxů + jednotlivých modelů; bez filtru plný seznam z API.
-     *  Pro OpenRouter se rodinný filtr nepoužije (platí jen skryté modely). */
+    /** Filtrovaný seznam; qwen (OpenRouter) je vždy první, Gemini modely dle filtru. */
     val availableModels: StateFlow<List<String>> =
-        combine(_allModels, hiddenModels, provider, geminiFilteredModels) { all, hidden, prov, geminiFiltered ->
-            if (prov == SettingsRepository.PROVIDER_OPENROUTER) all.filter { it !in hidden } else geminiFiltered
+        combine(geminiFilteredModels, _allModels, hiddenModels) { filtered, all, hidden ->
+            ModelFilters.pinQwenFirst(filtered, all, hidden)
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     /** Viditelnost jednotlivých modelů nezávisle na hlavním vypínači (dialog Spravovat modely). */
     val modelVisibility: StateFlow<Map<String, Boolean>> =
-        combine(_allModels, enabledFamilies, hiddenModels, shownModels, provider) { all, families, hidden, shown, prov ->
-            if (prov == SettingsRepository.PROVIDER_OPENROUTER) {
-                all.associateWith { it !in hidden }
-            } else {
-                all.associateWith { ModelFilters.isVisibleBySelection(it, families, hidden, shown) }
-            }
+        combine(_allModels, enabledFamilies, hiddenModels, shownModels) { all, families, hidden, shown ->
+            all.associateWith { ModelFilters.isVisibleUnified(it, families, hidden, shown) }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val _modelsLoading = MutableStateFlow(false)
     val modelsLoading: StateFlow<Boolean> = _modelsLoading.asStateFlow()
 
-    /** Uloží provider + model vždy; klíče jen když uživatel napsal nové (prázdné = ponechat). */
-    fun save(provider: String, model: String, newGeminiKey: String?, newOpenRouterKey: String?) {
+    /** Uloží model (provider se odvodí automaticky: qwen → OpenRouter, jinak Gemini) + vyplněné klíče. */
+    fun save(model: String, newGeminiKey: String?, newOpenRouterKey: String?) {
         viewModelScope.launch {
-            settingsRepository.setProvider(provider)
             if (!newGeminiKey.isNullOrBlank()) {
                 settingsRepository.setApiKey(newGeminiKey)
             }
             if (!newOpenRouterKey.isNullOrBlank()) {
                 settingsRepository.setOpenRouterApiKey(newOpenRouterKey)
             }
-            settingsRepository.setModel(model, settingsRepository.provider.first())
-        }
-    }
-
-    /** Přepne providera, nastaví jeho defaultní model a přenačte seznam modelů. */
-    fun setProvider(value: String) {
-        viewModelScope.launch {
-            settingsRepository.setProvider(value)
-            _allModels.value = emptyList()
-            loadModels()
+            settingsRepository.setModelAndProvider(model)
         }
     }
 
@@ -207,7 +188,12 @@ class SettingsViewModel @Inject constructor(
     fun setModelVisible(name: String, visible: Boolean) {
         val clean = name.trim()
         if (clean.isEmpty()) return
-        val familyOn = ModelFilters.classify(clean) in enabledFamilies.value
+        // Qwen se řídí jen skrytím (rodinný filtr ho neřeší) – skrýt = do hidden.
+        val familyOn = if (clean == ModelFilters.QWEN_MODEL_ID) {
+            true
+        } else {
+            ModelFilters.classify(clean) in enabledFamilies.value
+        }
         viewModelScope.launch { settingsRepository.setModelVisible(clean, visible, familyOn) }
     }
 
@@ -216,7 +202,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             _modelsLoading.value = true
             try {
-                val fresh = llmRouter.fetchModelNames()
+                val fresh = llmRouter.fetchUnifiedModels()
                 _allModels.value = fresh
                 settingsRepository.pruneModelOverrides(fresh.toSet())
             } catch (_: Exception) {

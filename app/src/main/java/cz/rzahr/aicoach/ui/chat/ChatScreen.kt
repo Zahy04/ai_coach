@@ -84,7 +84,6 @@ import coil.compose.AsyncImage
 import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
-import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.ui.theme.TextPrimaryDark
 import cz.rzahr.aicoach.util.formatTime
 import cz.rzahr.aicoach.util.toLocalDate
@@ -123,7 +122,6 @@ fun ChatScreen(
     val sending by viewModel.sending.collectAsStateWithLifecycle()
     val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
     val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
-    val provider by viewModel.provider.collectAsStateWithLifecycle()
     val error by viewModel.error.collectAsStateWithLifecycle()
     val pendingImagePath by viewModel.pendingImagePath.collectAsStateWithLifecycle()
     val currentModel by viewModel.model.collectAsStateWithLifecycle()
@@ -294,7 +292,7 @@ fun ChatScreen(
         ) {
             if (!hasApiKey) {
                 ApiKeyMissingBanner(
-                    isOpenRouter = provider == SettingsRepository.PROVIDER_OPENROUTER,
+                    isOpenRouter = '/' in currentModel,
                     onOpenSettings = onOpenSettings
                 )
             }

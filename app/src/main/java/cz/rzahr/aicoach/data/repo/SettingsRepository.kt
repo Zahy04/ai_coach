@@ -82,23 +82,6 @@ class SettingsRepository @Inject constructor(
     val provider: Flow<String> =
         context.dataStore.data.map { it[keyProvider] ?: PROVIDER_GEMINI }
 
-    suspend fun setProvider(value: String) {
-        val clean = if (value == PROVIDER_OPENROUTER) PROVIDER_OPENROUTER else PROVIDER_GEMINI
-        context.dataStore.edit {
-            it[keyProvider] = clean
-            // Při přepnutí providera rovnou defaultní model, ať nezůstane
-            // uložený model druhého providera (ten by vracel 404).
-            if (it[keyModel].isNullOrBlank() || !modelBelongsToProvider(it[keyModel].orEmpty(), clean)) {
-                it[keyModel] = defaultModelFor(clean)
-            }
-        }
-    }
-
-    private fun modelBelongsToProvider(model: String, provider: String): Boolean {
-        val openRouterLike = model.contains('/')
-        return if (provider == PROVIDER_OPENROUTER) openRouterLike else !openRouterLike
-    }
-
     val model: Flow<String> = context.dataStore.data.map { it[keyModel] ?: DEFAULT_MODEL }
 
     /** Zapnutý filtr = v nabídce jen Gemini Pro / Flash / Flash-Lite a Gemma. Výchozí true. */
@@ -196,8 +179,17 @@ class SettingsRepository @Inject constructor(
         context.dataStore.edit { it[keyOpenRouterApiKey] = value.trim() }
     }
 
-    suspend fun setModel(value: String, provider: String = PROVIDER_GEMINI) {
-        context.dataStore.edit { it[keyModel] = value.trim().ifBlank { defaultModelFor(provider) } }
+    /**
+     * Uloží model a k němu odvodí providera (id s "/" = OpenRouter, jinak Gemini).
+     * Jednotný seznam modelů (qwen + Gemini) tak přepíná providera automaticky.
+     */
+    suspend fun setModelAndProvider(value: String) {
+        val clean = value.trim()
+        val prov = providerForModel(clean)
+        context.dataStore.edit {
+            it[keyModel] = clean.ifBlank { defaultModelFor(prov) }
+            it[keyProvider] = providerForModel(it[keyModel].orEmpty())
+        }
     }
 
     suspend fun setDailyCalorieGoal(value: Int) {
@@ -216,6 +208,10 @@ class SettingsRepository @Inject constructor(
 
         fun defaultModelFor(provider: String): String =
             if (provider == PROVIDER_OPENROUTER) DEFAULT_OPENROUTER_MODEL else DEFAULT_MODEL
+
+        /** OpenRouter id vždy obsahují "/" (provider/model), Gemini názvy ne. */
+        fun providerForModel(model: String): String =
+            if (model.contains('/')) PROVIDER_OPENROUTER else PROVIDER_GEMINI
         const val DEFAULT_FILTER_MODELS = true
         const val DEFAULT_FILTER_FAMILY_PRO = true
         const val DEFAULT_FILTER_FAMILY_FLASH = true

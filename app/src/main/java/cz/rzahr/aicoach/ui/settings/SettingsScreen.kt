@@ -59,7 +59,6 @@ import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import cz.rzahr.aicoach.ui.components.SectionHeader
-import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.llm.ModelFilters
 import kotlinx.coroutines.launch
 
@@ -71,7 +70,6 @@ fun SettingsScreen(
 ) {
     val apiKey by viewModel.apiKey.collectAsStateWithLifecycle()
     val openRouterApiKey by viewModel.openRouterApiKey.collectAsStateWithLifecycle()
-    val provider by viewModel.provider.collectAsStateWithLifecycle()
     val model by viewModel.model.collectAsStateWithLifecycle()
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
     val proteinGoal by viewModel.proteinGoal.collectAsStateWithLifecycle()
@@ -92,7 +90,8 @@ fun SettingsScreen(
     val githubPat by viewModel.githubPat.collectAsStateWithLifecycle()
     val issueSending by viewModel.issueSending.collectAsStateWithLifecycle()
 
-    var newKeyInput by rememberSaveable { mutableStateOf("") }
+    var newGeminiKeyInput by rememberSaveable { mutableStateOf("") }
+    var newOpenRouterKeyInput by rememberSaveable { mutableStateOf("") }
     var modelInput by rememberSaveable { mutableStateOf<String?>(null) }
     var calorieGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
     var proteinGoalInput by rememberSaveable { mutableStateOf<String?>(null) }
@@ -100,7 +99,8 @@ fun SettingsScreen(
     var goalWeightInput by rememberSaveable { mutableStateOf<String?>(null) }
     var newPatInput by rememberSaveable { mutableStateOf("") }
     var patVisible by rememberSaveable { mutableStateOf(false) }
-    var keyVisible by rememberSaveable { mutableStateOf(false) }
+    var geminiKeyVisible by rememberSaveable { mutableStateOf(false) }
+    var openRouterKeyVisible by rememberSaveable { mutableStateOf(false) }
     var showModelDialog by remember { mutableStateOf(false) }
     var showManageDialog by remember { mutableStateOf(false) }
     var showIssueDialog by remember { mutableStateOf(false) }
@@ -121,9 +121,8 @@ fun SettingsScreen(
         }
     }
 
-    LaunchedEffect(provider, apiKey, openRouterApiKey, totalModelsCount) {
-        val activeKey = if (provider == SettingsRepository.PROVIDER_OPENROUTER) openRouterApiKey else apiKey
-        if (activeKey.isNotBlank() && totalModelsCount == 0) {
+    LaunchedEffect(apiKey, openRouterApiKey, totalModelsCount) {
+        if ((apiKey.isNotBlank() || openRouterApiKey.isNotBlank()) && totalModelsCount == 0) {
             viewModel.loadModels()
         }
     }
@@ -152,51 +151,55 @@ fun SettingsScreen(
             SectionHeader(stringResource(R.string.settings_section_coach))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.settings_provider_label), style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        val isGemini = provider != SettingsRepository.PROVIDER_OPENROUTER
-                        FilterChip(
-                            selected = isGemini,
-                            onClick = {
-                                viewModel.setProvider(SettingsRepository.PROVIDER_GEMINI)
-                                modelInput = SettingsRepository.defaultModelFor(SettingsRepository.PROVIDER_GEMINI)
-                                newKeyInput = ""
-                            },
-                            label = { Text(stringResource(R.string.settings_provider_gemini)) }
-                        )
-                        FilterChip(
-                            selected = !isGemini,
-                            onClick = {
-                                viewModel.setProvider(SettingsRepository.PROVIDER_OPENROUTER)
-                                modelInput = SettingsRepository.defaultModelFor(SettingsRepository.PROVIDER_OPENROUTER)
-                                newKeyInput = ""
-                            },
-                            label = { Text(stringResource(R.string.settings_provider_openrouter)) }
-                        )
-                    }
-                    val isOpenRouter = provider == SettingsRepository.PROVIDER_OPENROUTER
-                    val activeKey = if (isOpenRouter) openRouterApiKey else apiKey
+                    Text(stringResource(R.string.settings_api_keys), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (isOpenRouter) stringResource(R.string.settings_openrouter_api) else stringResource(R.string.settings_gemini_api),
-                        style = MaterialTheme.typography.titleMedium
+                        stringResource(R.string.settings_gemini_api),
+                        style = MaterialTheme.typography.titleSmall
                     )
                     Text(
-                        if (activeKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
+                        if (apiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
                         style = MaterialTheme.typography.bodySmall,
-                        color = if (activeKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                        color = if (apiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
                     )
                     OutlinedTextField(
-                        value = newKeyInput,
-                        onValueChange = { newKeyInput = it },
+                        value = newGeminiKeyInput,
+                        onValueChange = { newGeminiKeyInput = it },
                         label = { Text(stringResource(R.string.settings_new_api_key)) },
                         placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
                         singleLine = true,
-                        visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        visualTransformation = if (geminiKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         trailingIcon = {
-                            IconButton(onClick = { keyVisible = !keyVisible }) {
+                            IconButton(onClick = { geminiKeyVisible = !geminiKeyVisible }) {
                                 Icon(
-                                    if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    if (geminiKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
+                                    contentDescription = stringResource(R.string.settings_show_key)
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Text(
+                        stringResource(R.string.settings_openrouter_api),
+                        style = MaterialTheme.typography.titleSmall
+                    )
+                    Text(
+                        if (openRouterApiKey.isNotBlank()) "✓ Klíč je uložen" else "⚠ Klíč chybí",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (openRouterApiKey.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
+                    )
+                    OutlinedTextField(
+                        value = newOpenRouterKeyInput,
+                        onValueChange = { newOpenRouterKeyInput = it },
+                        label = { Text(stringResource(R.string.settings_new_api_key)) },
+                        placeholder = { Text(stringResource(R.string.keep_blank_to_keep)) },
+                        singleLine = true,
+                        visualTransformation = if (openRouterKeyVisible) VisualTransformation.None else PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        trailingIcon = {
+                            IconButton(onClick = { openRouterKeyVisible = !openRouterKeyVisible }) {
+                                Icon(
+                                    if (openRouterKeyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
                                     contentDescription = stringResource(R.string.settings_show_key)
                                 )
                             }
@@ -258,7 +261,7 @@ fun SettingsScreen(
                             )
                         }
                     }
-                    if (filterModels && !isOpenRouter) {
+                    if (filterModels) {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -321,15 +324,15 @@ fun SettingsScreen(
                     val modelOnlyMsg = stringResource(R.string.settings_saved_model_only)
                     Button(
                         onClick = {
-                            val savedWithKey = newKeyInput.isNotBlank()
+                            val savedWithKey = newGeminiKeyInput.isNotBlank() || newOpenRouterKeyInput.isNotBlank()
                             viewModel.save(
-                                provider,
                                 modelInput.orEmpty(),
-                                newGeminiKey = newKeyInput.takeIf { it.isNotBlank() && !isOpenRouter },
-                                newOpenRouterKey = newKeyInput.takeIf { it.isNotBlank() && isOpenRouter }
+                                newGeminiKey = newGeminiKeyInput.takeIf { it.isNotBlank() },
+                                newOpenRouterKey = newOpenRouterKeyInput.takeIf { it.isNotBlank() }
                             )
                             scope.launch { snackbarHostState.showSnackbar(if (savedWithKey) savedMsg else modelOnlyMsg) }
-                            newKeyInput = ""
+                            newGeminiKeyInput = ""
+                            newOpenRouterKeyInput = ""
                         },
                         modifier = Modifier.fillMaxWidth()
                     ) {
@@ -460,11 +463,12 @@ fun SettingsScreen(
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.settings_howto_title), style = MaterialTheme.typography.titleMedium)
                     Text(
-                        if (provider == SettingsRepository.PROVIDER_OPENROUTER) {
-                            stringResource(R.string.settings_howto_body_openrouter)
-                        } else {
-                            stringResource(R.string.settings_howto_body)
-                        },
+                        stringResource(R.string.settings_howto_body),
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(Modifier.size(4.dp))
+                    Text(
+                        stringResource(R.string.settings_howto_body_openrouter),
                         style = MaterialTheme.typography.bodyMedium
                     )
                 }

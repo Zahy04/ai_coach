@@ -191,6 +191,7 @@
 
     <!-- Settings -->
     <string name="settings_section_coach">Coach</string>
+    <string name="settings_api_keys">AI API keys</string>
     <string name="settings_provider_label">AI provider</string>
     <string name="settings_provider_gemini">Gemini</string>
     <string name="settings_provider_openrouter">OpenRouter</string>
