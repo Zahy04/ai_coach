@@ -76,4 +76,31 @@ object ModelFilters {
     /** Počty modelů v jednotlivých rodinách (pro popisky v Nastavení). */
     fun countByFamily(models: List<String>): Map<Family, Int> =
         models.groupingBy(::classify).eachCount()
+
+    /**
+     * Qwen z OpenRouteru je vlajková loď jednotného seznamu – vždy první,
+     * pokud ji API vrátilo a uživatel ji neschoval. Jinak pořadí beze změny.
+     */
+    fun pinQwenFirst(filtered: List<String>, all: List<String>, hidden: Set<String>): List<String> {
+        return if (QWEN_MODEL_ID in all && QWEN_MODEL_ID !in hidden && QWEN_MODEL_ID !in filtered) {
+            listOf(QWEN_MODEL_ID) + filtered
+        } else {
+            filtered
+        }
+    }
+
+    /** Viditelnost v jednotném seznamu: qwen dle skrytí, Gemini modely dle rodin. */
+    fun isVisibleUnified(
+        rawName: String,
+        families: Set<Family>,
+        hidden: Set<String> = emptySet(),
+        shown: Set<String> = emptySet()
+    ): Boolean {
+        val name = rawName.trim()
+        if (name == QWEN_MODEL_ID) return name !in hidden
+        return isVisibleBySelection(name, families, hidden, shown)
+    }
+
+    /** Držet v synchronu s SettingsRepository.DEFAULT_OPENROUTER_MODEL (bez závislosti). */
+    const val QWEN_MODEL_ID = "qwen/qwen3.8-27b:free"
 }
