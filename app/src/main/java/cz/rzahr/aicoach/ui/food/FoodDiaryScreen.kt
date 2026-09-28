@@ -20,6 +20,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
@@ -74,6 +75,7 @@ import kotlinx.coroutines.launch
 
 data class FoodActions(
     val onOpenMensa: () -> Unit = {},
+    val onOpenScan: () -> Unit = {},
     val onAdd: (String, Int?, Double?, Double?, Double?, Int?) -> Unit = { _, _, _, _, _, _ -> },
     val onUpdate: (Long, String, Int?, Double?, Double?, Double?, Int?) -> Unit = { _, _, _, _, _, _, _ -> },
     val onDelete: (FoodEntryEntity) -> Unit = {}
@@ -82,6 +84,7 @@ data class FoodActions(
 @Composable
 fun FoodDiaryScreen(
     onOpenMensa: () -> Unit,
+    onOpenScan: () -> Unit,
     viewModel: FoodViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entriesDesc.collectAsStateWithLifecycle()
@@ -95,6 +98,7 @@ fun FoodDiaryScreen(
         snackbarHostState = snackbarHostState,
         actions = FoodActions(
             onOpenMensa = onOpenMensa,
+            onOpenScan = onOpenScan,
             onAdd = viewModel::add,
             onUpdate = viewModel::update,
             onDelete = { entry ->
@@ -133,6 +137,11 @@ fun FoodDiaryContent(
                 title = stringResource(R.string.food_title),
                 eyebrow = stringResource(R.string.food_today_total, todayTotal.grouped(), calorieGoal.grouped()),
                 actions = {
+                    CircleIconButton(
+                        icon = Icons.Filled.QrCodeScanner,
+                        contentDescription = stringResource(R.string.scan_title),
+                        onClick = actions.onOpenScan
+                    )
                     CircleIconButton(
                         icon = Icons.Filled.Add,
                         contentDescription = stringResource(R.string.food_add),
@@ -389,6 +398,7 @@ private fun FoodRow(entry: FoodEntryEntity, onClick: () -> Unit) {
 private fun sourceLabel(source: String): String = when (source) {
     FoodEntryEntity.SOURCE_API -> stringResource(R.string.ev_source_off)
     FoodEntryEntity.SOURCE_MANUAL -> stringResource(R.string.food_source_manual)
+    FoodEntryEntity.SOURCE_SCAN -> stringResource(R.string.food_source_scan)
     else -> stringResource(R.string.food_source_coach)
 }
 
