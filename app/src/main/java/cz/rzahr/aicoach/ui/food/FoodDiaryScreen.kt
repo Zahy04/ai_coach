@@ -20,6 +20,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.QrCodeScanner
 import androidx.compose.material.icons.filled.Restaurant
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
@@ -62,6 +63,7 @@ import cz.rzahr.aicoach.util.toLocalDate
 @Composable
 fun FoodDiaryScreen(
     onOpenMensa: () -> Unit,
+    onOpenScan: () -> Unit,
     viewModel: FoodViewModel = hiltViewModel()
 ) {
     val entries by viewModel.entriesDesc.collectAsStateWithLifecycle()
@@ -89,6 +91,12 @@ fun FoodDiaryScreen(
             TopAppBar(
                 title = { Text(stringResource(R.string.food_title)) },
                 actions = {
+                    IconButton(onClick = onOpenScan) {
+                        Icon(
+                            Icons.Filled.QrCodeScanner,
+                            contentDescription = stringResource(R.string.scan_title)
+                        )
+                    }
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.food_add))
                     }

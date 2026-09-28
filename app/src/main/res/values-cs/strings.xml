@@ -133,6 +133,20 @@
     <!-- Food -->
     <string name="food_title">Deník jídel</string>
     <string name="food_add">Přidat jídlo</string>
+    <string name="scan_title">Skenovat čárový kód</string>
+    <string name="scan_permission_text">Pro skenování potřebuje aplikace přístup k fotoaparátu.</string>
+    <string name="scan_allow_camera">Povolit fotoaparát</string>
+    <string name="scan_hint">Namiřte na čárový kód</string>
+    <string name="scan_looking_up">Hledám produkt…</string>
+    <string name="scan_not_found">Produkt s kódem %1$s nenalezen.</string>
+    <string name="scan_camera_error">Fotoaparát se nepodařilo spustit.</string>
+    <string name="scan_unknown_product">Neznámá potravina</string>
+    <string name="scan_grams_label">Množství (g)</string>
+    <string name="scan_save">Uložit</string>
+    <string name="scan_per_100g_kcal">%1$d kcal / 100 g</string>
+    <string name="scan_macro_protein">Bílkoviny %1$s g</string>
+    <string name="scan_macro_carbs">Sacharidy %1$s g</string>
+    <string name="scan_macro_fat">Tuky %1$s g</string>
     <string name="food_empty_title">Zatím žádná jídla</string>
     <string name="food_empty_desc">Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +.</string>
     <string name="records_one">%1$d záznam</string>

@@ -134,6 +134,20 @@
     <!-- Food -->
     <string name="food_title">Food diary</string>
     <string name="food_add">Add food</string>
+    <string name="scan_title">Scan barcode</string>
+    <string name="scan_permission_text">The app needs camera access to scan barcodes.</string>
+    <string name="scan_allow_camera">Allow camera</string>
+    <string name="scan_hint">Point at a barcode</string>
+    <string name="scan_looking_up">Looking up product…</string>
+    <string name="scan_not_found">Product with code %1$s not found.</string>
+    <string name="scan_camera_error">Could not start the camera.</string>
+    <string name="scan_unknown_product">Unknown product</string>
+    <string name="scan_grams_label">Amount (g)</string>
+    <string name="scan_save">Save</string>
+    <string name="scan_per_100g_kcal">%1$d kcal / 100 g</string>
+    <string name="scan_macro_protein">Protein %1$s g</string>
+    <string name="scan_macro_carbs">Carbs %1$s g</string>
+    <string name="scan_macro_fat">Fat %1$s g</string>
     <string name="food_empty_title">No meals yet</string>
     <string name="food_empty_desc">Tell me in chat what you ate, or add food manually with the + button.</string>
     <string name="records_one">%1$d record</string>

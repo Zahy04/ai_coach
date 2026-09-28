@@ -20,5 +20,6 @@ data class FoodEntryEntity(
         const val SOURCE_MANUAL = "manual"
         const val SOURCE_API = "api"
         const val SOURCE_TEMPLATE = "template"
+        const val SOURCE_SCAN = "scan"
     }
 }
