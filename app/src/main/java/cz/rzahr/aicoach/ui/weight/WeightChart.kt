@@ -113,7 +113,8 @@ fun WeightChart(
     }
     val maValues = remember(sorted) { TrendMath.movingAverage(rawValues, 7) }
 
-    // Projekce k cíli: najdeme t > 1, kde trend protnutí cíl (max 2,5× horizontu dat)
+    // Kdy trend protne cíl. Používá se jen pro text s datem — graf kreslí
+    // výhradně reálná data, extrapolace se nekreslí (viz xPosRaw).
     val projectionT = remember(trend, goalWeightKg) {
         val fit = trend
         val goal = goalWeightKg
@@ -129,7 +130,6 @@ fun WeightChart(
         }
         null
     }
-    val domainMax = (projectionT?.let { maxOf(1.15, it * 1.04) }) ?: 1.0
     val projectionDate = remember(projectionT, sorted) {
         projectionT?.let { t ->
             val firstMs = sorted.first().timestamp
@@ -172,11 +172,11 @@ fun WeightChart(
             val plotHeight = size.height - padTop - padBottom
             val n = sorted.size
             val progress = drawProgress.value
-            val domain = domainMax.toFloat()
 
+            // Osa X pokrývá jen rozsah reálných dat — žádná rezerva na projekci.
             fun xPosRaw(index: Int): Float =
-                padLeft + plotWidth * (index.toFloat() / (n - 1)) * (1f / domain)
-            fun xPosT(t: Float): Float = padLeft + plotWidth * (t / domain)
+                padLeft + plotWidth * (index.toFloat() / (n - 1))
+            fun xPosT(t: Float): Float = padLeft + plotWidth * t
             fun yPos(value: Double): Float =
                 padTop + plotHeight * (1f - ((value - rawMin) / rawRange).toFloat())
 
@@ -241,38 +241,21 @@ fun WeightChart(
                 }
             }
 
-            // projekce k cíli — přerušovaná čára za posledním bodem
-            if (projectionT != null && progress > 0.98f && trend != null) {
-                val projPath = Path()
-                var started = false
-                var t = 1.0
-                while (t <= projectionT + 1e-9) {
-                    val point = Offset(xPosT(t.toFloat()), yPos(trend.evaluate(t)).coerceIn(padTop, padTop + plotHeight))
-                    if (!started) {
-                        projPath.moveTo(point.x, point.y)
-                        started = true
-                    } else {
-                        projPath.lineTo(point.x, point.y)
-                    }
-                    t += 0.04
-                }
-                drawPath(
-                    projPath,
-                    trendColor.copy(alpha = 0.75f),
-                    style = Stroke(
-                        width = 3f,
-                        cap = StrokeCap.Round,
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 10f))
-                    )
-                )
-                val goalPoint = Offset(xPosT(projectionT.toFloat()), yPos(goalWeightKg!!))
-                drawCircle(trendColor.copy(alpha = 0.9f), radius = 7f, center = goalPoint, style = Stroke(width = 3f))
+            // Cílová vodorovná čára, jen pokud cíl leží v zobrazeném rozsahu osy Y.
+            if (goalWeightKg != null && progress > 0.98f && goalWeightKg in rawMin..rawMax) {
+                val goalY = yPos(goalWeightKg)
                 drawLine(
                     trendColor.copy(alpha = 0.5f),
-                    start = Offset(padLeft, yPos(goalWeightKg)),
-                    end = Offset(size.width - padX, yPos(goalWeightKg)),
+                    start = Offset(padLeft, goalY),
+                    end = Offset(size.width - padX, goalY),
                     strokeWidth = 1f,
                     pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 6f))
+                )
+                drawCircle(
+                    trendColor.copy(alpha = 0.9f),
+                    radius = 5f,
+                    center = Offset(size.width - padX, goalY),
+                    style = Stroke(width = 2f)
                 )
             }
 
@@ -297,9 +280,10 @@ fun WeightChart(
                 modifier = Modifier.padding(start = 46.dp)
             )
             Text(
-                projectionDate?.formatDate() ?: sorted.last().timestamp.formatDate(),
+                // Osa X končí posledním skutečným měřením, ne projekcí.
+                sorted.last().timestamp.formatDate(),
                 style = MaterialTheme.typography.labelSmall,
-                color = if (projectionDate != null) trendColor else labelColor,
+                color = labelColor,
                 modifier = Modifier.padding(end = 16.dp)
             )
         }
