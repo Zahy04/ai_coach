@@ -31,4 +31,9 @@ hs_err_pid*
 # Build outputs
 *.apk
 *.aab
+*.idsig
 output.json
+
+# Lokální běh llama serveru (větev local) – binárky se sem kopírují ručně
+app/src/main/jniLibs/
+server.pid

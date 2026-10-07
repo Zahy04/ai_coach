@@ -6,6 +6,8 @@ import cz.rzahr.aicoach.data.db.AppDatabase
 import cz.rzahr.aicoach.data.db.dao.ChatMessageDao
 import cz.rzahr.aicoach.data.db.dao.FactDao
 import cz.rzahr.aicoach.data.db.dao.FoodEntryDao
+import cz.rzahr.aicoach.data.db.dao.LlmRequestDao
+import cz.rzahr.aicoach.data.db.dao.LlmToolCallDao
 import cz.rzahr.aicoach.data.db.dao.ProgressPhotoDao
 import cz.rzahr.aicoach.data.db.dao.WeightEntryDao
 import cz.rzahr.aicoach.data.db.dao.WorkoutEntryDao
@@ -34,7 +36,8 @@ object AppModule {
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
-                AppDatabase.MIGRATION_7_8
+                AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9
             )
             .build()
 
@@ -64,6 +67,12 @@ object AppModule {
 
     @Provides
     fun providePoseFolderDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.PoseFolderDao = db.poseFolderDao()
+
+    @Provides
+    fun provideLlmRequestDao(db: AppDatabase): LlmRequestDao = db.llmRequestDao()
+
+    @Provides
+    fun provideLlmToolCallDao(db: AppDatabase): LlmToolCallDao = db.llmToolCallDao()
 
     @Provides
     @Singleton

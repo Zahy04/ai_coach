@@ -231,6 +231,14 @@
     <string name="settings_language">Jazyk</string>
     <string name="language_cs">Čeština</string>
     <string name="language_en">English</string>
+    <!-- Benchmarking modelů (issue #6) -->
+    <string name="settings_section_stats">Statistiky modelů</string>
+    <string name="settings_stats_body">Aplikace si zapisuje, jak rychle modely odpovídají, jak často selhávají kvůli přetížení (429/503) a jak přesně odhadují kalorie. Exportovaný JSON si pak můžeš poslat na notebook a analyzovat v Pythonu.</string>
+    <string name="settings_stats_counts">Zaznamenáno: %1$d requestů, %2$d volání nástrojů.</string>
+    <string name="settings_stats_export">Exportovat JSON</string>
+    <string name="settings_stats_empty">Zatím žádná data – nejdřív něco napiš modelu.</string>
+    <string name="settings_stats_ready">JSON je připravený, vyber si kam ho poslat.</string>
+
     <string name="settings_section_feedback">Zpětná vazba</string>
     <string name="settings_pat_stored">✓ Token je uložen</string>
     <string name="settings_pat_missing">⚠ Token chybí</string>

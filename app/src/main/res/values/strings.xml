@@ -232,6 +232,14 @@
     <string name="settings_language">Language</string>
     <string name="language_cs">Čeština</string>
     <string name="language_en">English</string>
+    <!-- Model benchmarking (issue #6) -->
+    <string name="settings_section_stats">Model statistics</string>
+    <string name="settings_stats_body">The app records how fast models respond, how often they fail due to overload (429/503), and how accurately they estimate calories. Export the JSON to your laptop and analyse it in Python.</string>
+    <string name="settings_stats_counts">Recorded: %1$d requests, %2$d tool calls.</string>
+    <string name="settings_stats_export">Export JSON</string>
+    <string name="settings_stats_empty">No data yet – write something to a model first.</string>
+    <string name="settings_stats_ready">JSON is ready, choose where to send it.</string>
+
     <string name="settings_section_feedback">Feedback</string>
     <string name="settings_pat_stored">✓ Token is saved</string>
     <string name="settings_pat_missing">⚠ Token is missing</string>

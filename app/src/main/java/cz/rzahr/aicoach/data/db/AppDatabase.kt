@@ -7,6 +7,8 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import cz.rzahr.aicoach.data.db.dao.ChatMessageDao
 import cz.rzahr.aicoach.data.db.dao.FactDao
 import cz.rzahr.aicoach.data.db.dao.FoodEntryDao
+import cz.rzahr.aicoach.data.db.dao.LlmRequestDao
+import cz.rzahr.aicoach.data.db.dao.LlmToolCallDao
 import cz.rzahr.aicoach.data.db.dao.MensaMealDao
 import cz.rzahr.aicoach.data.db.dao.PoseFolderDao
 import cz.rzahr.aicoach.data.db.dao.ProgressPhotoDao
@@ -16,6 +18,8 @@ import cz.rzahr.aicoach.data.db.dao.WorkoutEntryDao
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
 import cz.rzahr.aicoach.data.db.entity.FactEntity
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
+import cz.rzahr.aicoach.data.db.entity.LlmRequestEntity
+import cz.rzahr.aicoach.data.db.entity.LlmToolCallEntity
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.data.db.entity.PoseFolderEntity
 import cz.rzahr.aicoach.data.db.entity.ProgressPhotoEntity
@@ -33,9 +37,11 @@ import cz.rzahr.aicoach.data.db.entity.WorkoutEntryEntity
         ProgressPhotoEntity::class,
         WaterEntryEntity::class,
         MensaMealEntity::class,
-        PoseFolderEntity::class
+        PoseFolderEntity::class,
+        LlmRequestEntity::class,
+        LlmToolCallEntity::class
     ],
-    version = 8,
+    version = 9,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -48,6 +54,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun waterEntryDao(): WaterEntryDao
     abstract fun mensaMealDao(): MensaMealDao
     abstract fun poseFolderDao(): PoseFolderDao
+    abstract fun llmRequestDao(): LlmRequestDao
+    abstract fun llmToolCallDao(): LlmToolCallDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -115,6 +123,60 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE mensa_meals ADD COLUMN photoUrl TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE mensa_meals ADD COLUMN allergens TEXT DEFAULT NULL")
                 db.execSQL("ALTER TABLE mensa_meals ADD COLUMN visionEstimated INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS llm_requests (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "timestamp INTEGER NOT NULL, " +
+                        "provider TEXT NOT NULL, " +
+                        "model TEXT NOT NULL, " +
+                        "attempt INTEGER NOT NULL, " +
+                        "round INTEGER NOT NULL DEFAULT 0, " +
+                        "durationMs INTEGER NOT NULL, " +
+                        "firstTokenMs INTEGER, " +
+                        "httpStatus INTEGER, " +
+                        "success INTEGER NOT NULL, " +
+                        "errorKind TEXT, " +
+                        "overloaded INTEGER, " +
+                        "retryAfterMs INTEGER, " +
+                        "promptTokens INTEGER, " +
+                        "completionTokens INTEGER, " +
+                        "totalTokens INTEGER, " +
+                        "finishReason TEXT, " +
+                        "toolCallCount INTEGER, " +
+                        "replyChars INTEGER, " +
+                        "textFallbackChars INTEGER, " +
+                        "errorMessage TEXT)"
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS llm_tool_calls (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, " +
+                        "timestamp INTEGER NOT NULL, " +
+                        "provider TEXT NOT NULL, " +
+                        "model TEXT NOT NULL, " +
+                        "toolName TEXT NOT NULL, " +
+                        "outcome TEXT NOT NULL, " +
+                        "errorKind TEXT, " +
+                        "durationMs INTEGER NOT NULL, " +
+                        "viaTextFallback INTEGER NOT NULL DEFAULT 0, " +
+                        "round INTEGER NOT NULL DEFAULT 0, " +
+                        "foodName TEXT, " +
+                        "quantityG REAL, " +
+                        "modelCalories INTEGER, " +
+                        "modelProteinG REAL, " +
+                        "modelCarbsG REAL, " +
+                        "modelFatG REAL, " +
+                        "finalCalories INTEGER, " +
+                        "finalProteinG REAL, " +
+                        "finalCarbsG REAL, " +
+                        "finalFatG REAL, " +
+                        "finalSource TEXT, " +
+                        "savedValue REAL)"
+                )
             }
         }
     }
