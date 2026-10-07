@@ -1,6 +1,8 @@
 package cz.rzahr.aicoach.llm
 
 import android.util.Log
+import cz.rzahr.aicoach.data.db.entity.LlmRequestEntity
+import cz.rzahr.aicoach.data.repo.LlmStatsRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import java.io.IOException
 import javax.inject.Inject
@@ -40,7 +42,8 @@ class GeminiClient @Inject constructor(
     private val http: OkHttpClient,
     private val json: Json,
     private val settings: SettingsRepository,
-    private val toolExecutor: ToolExecutor
+    private val toolExecutor: ToolExecutor,
+    private val statsRepository: LlmStatsRepository
 ) : LlmClient {
 
     override suspend fun chat(
@@ -57,13 +60,17 @@ class GeminiClient @Inject constructor(
         // jinak se z nich model učí a simulace se samy zesilují.
         val contents = sanitizeHistory(history).toMutableList()
         val events = mutableListOf<String>()
-        val turnContext = TurnContext()
+        val turnContext = TurnContext(
+            provider = LlmRequestEntity.PROVIDER_GEMINI,
+            model = model
+        )
         // Narativ ze všech kol – dřív se ukládal jen text posledního kola,
         // zatímco UI streamovalo všechno (blikání / mizení textu).
         val narrative = mutableListOf<String>()
 
         repeat(MAX_TOOL_ROUNDS) { round ->
-            val modelContent = streamRound(apiKey, model, systemPrompt, contents, onDelta)
+            turnContext.round = round
+            val modelContent = streamRound(apiKey, model, systemPrompt, contents, turnContext, round, onDelta)
             if (modelContent.parts.isEmpty()) {
                 throw GeminiException("Model vrátil prázdnou odpověď.")
             }
@@ -81,11 +88,13 @@ class GeminiClient @Inject constructor(
                 val rescue = ToolTextFallback.extractExecutableCalls(roundText)
                 if (rescue.isNotEmpty()) {
                     Log.d(TAG, "chat: rescue $round – textových pseudo-volání: ${rescue.size}")
+                    turnContext.viaTextFallback = true
                     val responseParts = rescue.map { call ->
                         val result = toolExecutor.execute(call, turnContext)
                         result.event?.let { events.add(it) }
                         Part(functionResponse = FunctionResponse(name = call.name, response = result.response))
                     }
+                    turnContext.viaTextFallback = false
                     contents.add(Content(role = "user", parts = responseParts))
                     // Pokračujeme na další kolo, aby model po rescue dopsal přirozenou odpověď.
                     return@repeat
@@ -117,6 +126,8 @@ class GeminiClient @Inject constructor(
         model: String,
         systemPrompt: String,
         contents: List<Content>,
+        turnContext: TurnContext,
+        round: Int,
         onDelta: suspend (String) -> Unit
     ): Content {
         var attempt = 0
@@ -141,14 +152,38 @@ class GeminiClient @Inject constructor(
                 .post(body)
                 .build()
 
+            val requestStarted = System.currentTimeMillis()
             val response = http.newCall(httpRequest).await()
 
             if (!response.isSuccessful) {
                 val retryAfterHeader = response.header("Retry-After")
                 val errorText = response.use { it.body?.string().orEmpty() }
                 val retryable = response.code == 429 || response.code == 503
+                val waited = if (retryable) {
+                    RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfterHeader)
+                } else {
+                    null
+                }
+                // Telemetrie: každý neúspěšný pokus je samostatný řádek, ať se
+                // přetížení nepromítá do průměrné latence jako úspěch.
+                recordRequest(
+                    turnContext = turnContext,
+                    round = round,
+                    attempt = attempt,
+                    durationMs = System.currentTimeMillis() - requestStarted,
+                    httpStatus = response.code,
+                    success = false,
+                    errorKind = when (response.code) {
+                        429 -> LlmRequestEntity.ERROR_RATE_LIMIT
+                        503 -> LlmRequestEntity.ERROR_OVERLOADED
+                        else -> LlmRequestEntity.ERROR_HTTP
+                    },
+                    overloaded = response.code == 503,
+                    retryAfterMs = waited,
+                    errorMessage = errorText.take(500).ifBlank { null }
+                )
                 if (retryable && attempt < MAX_RETRIES - 1) {
-                    val wait = RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfterHeader)
+                    val wait = waited ?: RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfterHeader)
                     Log.w(TAG, "request 429/503 – retry ${attempt + 1}/$MAX_RETRIES za ${wait}ms")
                     delay(wait)
                     attempt++
@@ -176,6 +211,11 @@ class GeminiClient @Inject constructor(
                 ?: throw GeminiException("Prázdná odpověď serveru.")
 
             val parts = mutableListOf<Part>()
+            var firstTokenMs: Long? = null
+            var lastUsage: UsageMetadata? = null
+            var finishReason: String? = null
+            var replyChars = 0
+            var streamFailed = false
             try {
                 source.use { src ->
                     while (true) {
@@ -189,17 +229,99 @@ class GeminiClient @Inject constructor(
                         if (Log.isLoggable(TAG, Log.VERBOSE)) {
                             Log.v(TAG, "chunk finish=${chunk.candidates?.firstOrNull()?.finishReason}")
                         }
+                        chunk.usageMetadata?.let { lastUsage = it }
+                        chunk.candidates?.firstOrNull()?.finishReason?.let { finishReason = it }
                         val chunkParts = chunk.candidates?.firstOrNull()?.content?.parts ?: continue
-                        chunkParts.forEach { part -> accumulatePart(parts, part, onDelta) }
+                        if (chunkParts.isNotEmpty() && firstTokenMs == null) {
+                            firstTokenMs = System.currentTimeMillis() - requestStarted
+                        }
+                        chunkParts.forEach { part ->
+                            part.text?.let { replyChars += it.length }
+                            accumulatePart(parts, part, onDelta)
+                        }
                     }
                 }
             } catch (e: IOException) {
                 if (parts.isEmpty()) {
+                    recordRequest(
+                        turnContext = turnContext,
+                        round = round,
+                        attempt = attempt,
+                        durationMs = System.currentTimeMillis() - requestStarted,
+                        firstTokenMs = firstTokenMs,
+                        httpStatus = response.code,
+                        success = false,
+                        errorKind = LlmRequestEntity.ERROR_NETWORK,
+                        errorMessage = e.message?.take(500)
+                    )
                     throw GeminiException("Síťová chyba během streamování: ${e.message}")
                 }
+                streamFailed = true
             }
+
+            recordRequest(
+                turnContext = turnContext,
+                round = round,
+                attempt = attempt,
+                durationMs = System.currentTimeMillis() - requestStarted,
+                firstTokenMs = firstTokenMs,
+                httpStatus = response.code,
+                success = parts.isNotEmpty(),
+                errorKind = if (streamFailed) LlmRequestEntity.ERROR_NETWORK else null,
+                promptTokens = lastUsage?.promptTokenCount,
+                completionTokens = lastUsage?.candidatesTokenCount,
+                totalTokens = lastUsage?.totalTokenCount,
+                finishReason = finishReason,
+                toolCallCount = parts.count { it.functionCall != null },
+                replyChars = replyChars
+            )
             return Content(role = "model", parts = parts)
         }
+    }
+
+    /** Telemetrie pro benchmark modelů (issue #6) – best-effort, nikdy nevyhazujeme. */
+    private suspend fun recordRequest(
+        turnContext: TurnContext,
+        round: Int,
+        attempt: Int,
+        durationMs: Long,
+        firstTokenMs: Long? = null,
+        httpStatus: Int? = null,
+        success: Boolean,
+        errorKind: String? = null,
+        overloaded: Boolean? = null,
+        retryAfterMs: Long? = null,
+        promptTokens: Int? = null,
+        completionTokens: Int? = null,
+        totalTokens: Int? = null,
+        finishReason: String? = null,
+        toolCallCount: Int? = null,
+        replyChars: Int? = null,
+        errorMessage: String? = null
+    ) {
+        statsRepository.record(
+            LlmRequestEntity(
+                timestamp = System.currentTimeMillis(),
+                provider = turnContext.provider,
+                model = turnContext.model,
+                attempt = attempt,
+                round = round,
+                durationMs = durationMs,
+                firstTokenMs = firstTokenMs,
+                httpStatus = httpStatus,
+                success = success,
+                errorKind = errorKind,
+                overloaded = overloaded,
+                retryAfterMs = retryAfterMs,
+                promptTokens = promptTokens,
+                completionTokens = completionTokens,
+                totalTokens = totalTokens,
+                finishReason = finishReason,
+                toolCallCount = toolCallCount,
+                replyChars = replyChars,
+                errorMessage = errorMessage
+            )
+        )
     }
 
     private suspend fun accumulatePart(

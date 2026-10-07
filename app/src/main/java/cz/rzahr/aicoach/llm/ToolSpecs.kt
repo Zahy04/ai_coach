@@ -18,6 +18,9 @@ object ToolSpecs {
     const val SAVE_FACT = "save_fact"
     const val DELETE_FACT = "delete_fact"
 
+    /** Všechna jména nástrojů – podle toho poznáme, že model volal něco, co neznáme (issue #6). */
+    val names = listOf(SAVE_WEIGHT, LOG_FOOD, LOG_WATER, LOG_WORKOUT, SAVE_FACT, DELETE_FACT)
+
     val declarations = listOf(
         FunctionDeclaration(
             name = SAVE_WEIGHT,

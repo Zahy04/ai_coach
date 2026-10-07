@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths>
     <cache-path name="captures" path="captures/" />
+    <!-- Export statistik modelů do JSONu pro analýzu v notebooku (issue #6). -->
+    <cache-path name="exports" path="exports/" />
     <files-path name="progress_photos" path="photos/" />
 </paths>

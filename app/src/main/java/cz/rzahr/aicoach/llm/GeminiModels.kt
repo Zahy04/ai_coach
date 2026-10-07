@@ -86,7 +86,16 @@ data class GenerationConfig(
 
 @Serializable
 data class GenerateContentResponse(
-    val candidates: List<Candidate>? = null
+    val candidates: List<Candidate>? = null,
+    // Dřív se to zahazovalo (ignoreUnknownKeys) – chybí nám to pro benchmark.
+    val usageMetadata: UsageMetadata? = null
+)
+
+@Serializable
+data class UsageMetadata(
+    val promptTokenCount: Int? = null,
+    val candidatesTokenCount: Int? = null,
+    val totalTokenCount: Int? = null
 )
 
 @Serializable

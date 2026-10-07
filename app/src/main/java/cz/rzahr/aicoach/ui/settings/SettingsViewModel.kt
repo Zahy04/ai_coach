@@ -1,8 +1,11 @@
 package cz.rzahr.aicoach.ui.settings
 
+import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cz.rzahr.aicoach.data.export.LlmStatsExporter
 import cz.rzahr.aicoach.data.repo.GitHubIssueRepository
+import cz.rzahr.aicoach.data.repo.LlmStatsRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import cz.rzahr.aicoach.llm.LlmRouter
 import cz.rzahr.aicoach.llm.ModelFilters
@@ -21,11 +24,26 @@ import kotlinx.coroutines.launch
 class SettingsViewModel @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val llmRouter: LlmRouter,
-    private val gitHubIssueRepository: GitHubIssueRepository
+    private val gitHubIssueRepository: GitHubIssueRepository,
+    private val llmStatsRepository: LlmStatsRepository,
+    private val llmStatsExporter: LlmStatsExporter
 ) : ViewModel() {
 
     val githubPat: StateFlow<String> = settingsRepository.githubPat
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "")
+
+    val statsRequestCount: StateFlow<Int> = llmStatsRepository.observeRequestCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    val statsToolCallCount: StateFlow<Int> = llmStatsRepository.observeToolCallCount()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    /**
+     * Vrátí Uri JSONu v cache, nebo null když zatím nemáme žádná data.
+     * Samotné sdílení dělá UI – ViewModel nemá Activity, ze které by se
+     * share sheet spustil (startActivity z Application kontextu spadne).
+     */
+    suspend fun exportStats(): Uri? = llmStatsExporter.exportToCache()
 
     private val _issueSending = MutableStateFlow(false)
     val issueSending: StateFlow<Boolean> = _issueSending.asStateFlow()

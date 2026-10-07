@@ -1,6 +1,8 @@
 package cz.rzahr.aicoach.llm
 
 import android.util.Log
+import cz.rzahr.aicoach.data.db.entity.LlmRequestEntity
+import cz.rzahr.aicoach.data.repo.LlmStatsRepository
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import java.io.IOException
 import javax.inject.Inject
@@ -49,12 +51,24 @@ private data class OrModelsResponse(
 @Serializable
 internal data class OrModelInfo(
     val id: String = "",
-    val supported_parameters: List<String> = emptyList()
+    val supported_parameters: List<String> = emptyList(),
+    // Doplňující metadata pro export benchmarku (nezobrazuje se ve výběru).
+    val name: String? = null,
+    val context_length: Long? = null
 )
 
 @Serializable
 private data class OrStreamChunk(
-    val choices: List<OrChoice> = emptyList()
+    val choices: List<OrChoice> = emptyList(),
+    // OpenAI-compatible usage; ve streamu přichází v posledním chunku.
+    val usage: OrUsage? = null
+)
+
+@Serializable
+private data class OrUsage(
+    val prompt_tokens: Int? = null,
+    val completion_tokens: Int? = null,
+    val total_tokens: Int? = null
 )
 
 @Serializable
@@ -120,7 +134,8 @@ class OpenRouterClient @Inject constructor(
     private val http: OkHttpClient,
     private val json: Json,
     private val settings: SettingsRepository,
-    private val toolExecutor: ToolExecutor
+    private val toolExecutor: ToolExecutor,
+    private val statsRepository: LlmStatsRepository
 ) : LlmClient {
 
     override suspend fun chat(
@@ -135,12 +150,16 @@ class OpenRouterClient @Inject constructor(
         val model = normalizeModel(settings.model.first())
         val messages = toOpenAiMessages(systemPrompt, history).toMutableList()
         val events = mutableListOf<String>()
-        val turnContext = TurnContext()
+        val turnContext = TurnContext(
+            provider = LlmRequestEntity.PROVIDER_OPENROUTER,
+            model = model
+        )
         // Narativ ze všech kol – UI streamuje průběžně, ukládá se celek.
         val narrative = mutableListOf<String>()
 
         repeat(MAX_TOOL_ROUNDS) { round ->
-            val (roundText, calls) = streamRound(apiKey, model, messages, onDelta)
+            turnContext.round = round
+            val (roundText, calls) = streamRound(apiKey, model, messages, turnContext, round, onDelta)
             if (roundText.isNotBlank()) {
                 ToolTextFallback.sanitizeModelText(roundText).trim()
                     .takeIf { it.isNotBlank() }?.let { narrative.add(it) }
@@ -151,11 +170,13 @@ class OpenRouterClient @Inject constructor(
                 if (rescue.isNotEmpty()) {
                     Log.d(TAG, "chat: rescue $round – textových pseudo-volání: ${rescue.size}")
                     if (roundText.isNotBlank()) messages += assistantMessage(roundText, emptyList())
+                    turnContext.viaTextFallback = true
                     rescue.forEachIndexed { i, call ->
                         val result = toolExecutor.execute(call, turnContext)
                         result.event?.let { events.add(it) }
                         messages += toolMessage("rescue-$round-$i", result.response)
                     }
+                    turnContext.viaTextFallback = false
                     // Pokračujeme na další kolo, aby model po rescue dopsal přirozenou odpověď.
                     return@repeat
                 }
@@ -183,6 +204,8 @@ class OpenRouterClient @Inject constructor(
         apiKey: String,
         model: String,
         messages: List<JsonObject>,
+        turnContext: TurnContext,
+        round: Int,
         onDelta: suspend (String) -> Unit
     ): RoundResult {
         var attempt = 0
@@ -203,14 +226,36 @@ class OpenRouterClient @Inject constructor(
                 .post(body.toString().toRequestBody("application/json; charset=utf-8".toMediaType()))
                 .build()
 
+            val requestStarted = System.currentTimeMillis()
             val response = http.newCall(httpRequest).await()
 
             if (!response.isSuccessful) {
                 val retryAfter = response.header("Retry-After")
                 val errorText = response.use { it.body?.string().orEmpty() }
                 val retryable = response.code == 429 || response.code == 503
+                val waited = if (retryable) {
+                    RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfter)
+                } else {
+                    null
+                }
+                recordRequest(
+                    turnContext = turnContext,
+                    round = round,
+                    attempt = attempt,
+                    durationMs = System.currentTimeMillis() - requestStarted,
+                    httpStatus = response.code,
+                    success = false,
+                    errorKind = when (response.code) {
+                        429 -> LlmRequestEntity.ERROR_RATE_LIMIT
+                        503 -> LlmRequestEntity.ERROR_OVERLOADED
+                        else -> LlmRequestEntity.ERROR_HTTP
+                    },
+                    overloaded = response.code == 503,
+                    retryAfterMs = waited,
+                    errorMessage = errorText.take(500).ifBlank { null }
+                )
                 if (retryable && attempt < MAX_RETRIES - 1) {
-                    val wait = RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfter)
+                    val wait = waited ?: RetryDelays.computeRetryDelayMs(attempt, errorText, retryAfter)
                     Log.w(TAG, "chat 429/503 – retry ${attempt + 1}/$MAX_RETRIES za ${wait}ms")
                     delay(wait)
                     attempt++
@@ -230,6 +275,10 @@ class OpenRouterClient @Inject constructor(
 
             val text = StringBuilder()
             val toolAcc = mutableMapOf<Int, ToolCallAcc>()
+            var firstTokenMs: Long? = null
+            var lastUsage: OrUsage? = null
+            var finishReason: String? = null
+            var streamFailed = false
             try {
                 source.use { src ->
                     while (true) {
@@ -245,6 +294,17 @@ class OpenRouterClient @Inject constructor(
                             val msg = runCatching {
                                 json.decodeFromString(OrErrorResponse.serializer(), payload).error?.message
                             }.getOrNull()
+                            recordRequest(
+                                turnContext = turnContext,
+                                round = round,
+                                attempt = attempt,
+                                durationMs = System.currentTimeMillis() - requestStarted,
+                                firstTokenMs = firstTokenMs,
+                                httpStatus = response.code,
+                                success = false,
+                                errorKind = LlmRequestEntity.ERROR_HTTP,
+                                errorMessage = msg?.take(500)
+                            )
                             throw OpenRouterException(
                                 msg?.takeIf { it.isNotBlank() } ?: "Model vrátil chybu."
                             )
@@ -252,25 +312,45 @@ class OpenRouterClient @Inject constructor(
                         val chunk = runCatching {
                             json.decodeFromString(OrStreamChunk.serializer(), payload)
                         }.getOrNull() ?: continue
-                        val delta = chunk.choices.firstOrNull()?.delta ?: continue
-                        delta.content?.let { c ->
-                            if (c.isNotEmpty()) {
-                                text.append(c)
-                                onDelta(c)
+                        chunk.usage?.let { lastUsage = it }
+                        chunk.choices.firstOrNull()?.finish_reason?.let { finishReason = it }
+                        val choice = chunk.choices.firstOrNull()
+                        val delta = choice?.delta
+                        if (delta != null) {
+                            if (firstTokenMs == null && (delta.content?.isNotEmpty() == true || delta.tool_calls.isNotEmpty())) {
+                                firstTokenMs = System.currentTimeMillis() - requestStarted
                             }
-                        }
-                        delta.tool_calls.forEach { tc ->
-                            val acc = toolAcc.getOrPut(tc.index) { ToolCallAcc(tc.index) }
-                            tc.id?.takeIf { it.isNotBlank() }?.let { acc.id = it }
-                            tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
-                            tc.function?.arguments?.let { acc.args.append(it) }
+                            delta.content?.let { c ->
+                                if (c.isNotEmpty()) {
+                                    text.append(c)
+                                    onDelta(c)
+                                }
+                            }
+                            delta.tool_calls.forEach { tc ->
+                                val acc = toolAcc.getOrPut(tc.index) { ToolCallAcc(tc.index) }
+                                tc.id?.takeIf { it.isNotBlank() }?.let { acc.id = it }
+                                tc.function?.name?.takeIf { it.isNotBlank() }?.let { acc.name = it }
+                                tc.function?.arguments?.let { acc.args.append(it) }
+                            }
                         }
                     }
                 }
             } catch (e: IOException) {
                 if (text.isEmpty() && toolAcc.isEmpty()) {
+                    recordRequest(
+                        turnContext = turnContext,
+                        round = round,
+                        attempt = attempt,
+                        durationMs = System.currentTimeMillis() - requestStarted,
+                        firstTokenMs = firstTokenMs,
+                        httpStatus = response.code,
+                        success = false,
+                        errorKind = LlmRequestEntity.ERROR_NETWORK,
+                        errorMessage = e.message?.take(500)
+                    )
                     throw OpenRouterException("Síťová chyba během streamování: ${e.message}")
                 }
+                streamFailed = true
             }
             val calls = toolAcc.toSortedMap().values.map { acc ->
                 val argsText = acc.args.toString()
@@ -282,8 +362,70 @@ class OpenRouterClient @Inject constructor(
                 }
                 OpenRouterToolCall(acc.id ?: "call-${acc.index}", acc.name.orEmpty(), args)
             }.filter { it.name.isNotBlank() }
+
+            recordRequest(
+                turnContext = turnContext,
+                round = round,
+                attempt = attempt,
+                durationMs = System.currentTimeMillis() - requestStarted,
+                firstTokenMs = firstTokenMs,
+                httpStatus = response.code,
+                success = calls.isNotEmpty() || text.isNotEmpty(),
+                errorKind = if (streamFailed) LlmRequestEntity.ERROR_NETWORK else null,
+                promptTokens = lastUsage?.prompt_tokens,
+                completionTokens = lastUsage?.completion_tokens,
+                totalTokens = lastUsage?.total_tokens,
+                finishReason = finishReason,
+                toolCallCount = calls.size,
+                replyChars = text.length
+            )
             return RoundResult(text.toString(), calls)
         }
+    }
+
+    /** Telemetrie pro benchmark modelů (issue #6) – best-effort, nikdy nevyhazujeme. */
+    private suspend fun recordRequest(
+        turnContext: TurnContext,
+        round: Int,
+        attempt: Int,
+        durationMs: Long,
+        firstTokenMs: Long? = null,
+        httpStatus: Int? = null,
+        success: Boolean,
+        errorKind: String? = null,
+        overloaded: Boolean? = null,
+        retryAfterMs: Long? = null,
+        promptTokens: Int? = null,
+        completionTokens: Int? = null,
+        totalTokens: Int? = null,
+        finishReason: String? = null,
+        toolCallCount: Int? = null,
+        replyChars: Int? = null,
+        errorMessage: String? = null
+    ) {
+        statsRepository.record(
+            LlmRequestEntity(
+                timestamp = System.currentTimeMillis(),
+                provider = turnContext.provider,
+                model = turnContext.model,
+                attempt = attempt,
+                round = round,
+                durationMs = durationMs,
+                firstTokenMs = firstTokenMs,
+                httpStatus = httpStatus,
+                success = success,
+                errorKind = errorKind,
+                overloaded = overloaded,
+                retryAfterMs = retryAfterMs,
+                promptTokens = promptTokens,
+                completionTokens = completionTokens,
+                totalTokens = totalTokens,
+                finishReason = finishReason,
+                toolCallCount = toolCallCount,
+                replyChars = replyChars,
+                errorMessage = errorMessage
+            )
+        )
     }
 
     override suspend fun fetchModelNames(): List<String> = withContext(Dispatchers.IO) {

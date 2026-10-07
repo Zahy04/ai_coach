@@ -1,5 +1,8 @@
 package cz.rzahr.aicoach.ui.settings
 
+import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -49,11 +52,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
 import androidx.core.os.LocaleListCompat
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -89,6 +93,9 @@ fun SettingsScreen(
     val goalWeightKg by viewModel.goalWeightKg.collectAsStateWithLifecycle()
     val githubPat by viewModel.githubPat.collectAsStateWithLifecycle()
     val issueSending by viewModel.issueSending.collectAsStateWithLifecycle()
+    val statsRequestCount by viewModel.statsRequestCount.collectAsStateWithLifecycle()
+    val statsToolCallCount by viewModel.statsToolCallCount.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     var newGeminiKeyInput by rememberSaveable { mutableStateOf("") }
     var newOpenRouterKeyInput by rememberSaveable { mutableStateOf("") }
@@ -458,6 +465,37 @@ fun SettingsScreen(
                 }
             }
 
+            SectionHeader(stringResource(R.string.settings_section_stats))
+            Card(Modifier.fillMaxWidth()) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        stringResource(R.string.settings_stats_body),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        stringResource(R.string.settings_stats_counts, statsRequestCount, statsToolCallCount),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    OutlinedButton(
+                        onClick = {
+                            scope.launch {
+                                val uri = viewModel.exportStats()
+                                if (uri == null) {
+                                    snackbarHostState.showSnackbar(context.getString(R.string.settings_stats_empty))
+                                } else {
+                                    snackbarHostState.showSnackbar(context.getString(R.string.settings_stats_ready))
+                                    shareStatsFile(context, uri)
+                                }
+                            }
+                        },
+                        enabled = statsRequestCount + statsToolCallCount > 0
+                    ) {
+                        Text(stringResource(R.string.settings_stats_export))
+                    }
+                }
+            }
+
             SectionHeader(stringResource(R.string.settings_help_section))
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -633,4 +671,22 @@ private fun FamilyFilterRow(
             style = MaterialTheme.typography.bodyMedium
         )
     }
+}
+
+/**
+ * Otevře share sheet s JSONem statistik (issue #6). Musí se volat z Activity
+ * kontextu – z Application kontextu by startActivity spadlo na chybějícím
+ * FLAG_ACTIVITY_NEW_TASK.
+ */
+private fun shareStatsFile(context: Context, uri: Uri) {
+    val send = Intent(Intent.ACTION_SEND).apply {
+        type = "application/json"
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    }
+    context.startActivity(
+        Intent.createChooser(send, null).apply {
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    )
 }

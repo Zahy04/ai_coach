@@ -5,9 +5,11 @@ import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.util.formatDateTime
 import cz.rzahr.aicoach.data.repo.FactRepository
 import cz.rzahr.aicoach.data.repo.FoodRepository
+import cz.rzahr.aicoach.data.repo.LlmStatsRepository
 import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
+import cz.rzahr.aicoach.data.db.entity.LlmToolCallEntity
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
@@ -20,9 +22,24 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
+import kotlinx.serialization.json.contentOrNull
 
-class TurnContext {
+/**
+ * Sleduje, odkud přišlo aktuální tool volání – provider i model.
+ * [ToolExecutor] ho potřebuje, aby telemetry zapsal správný model,
+ * a provider ho používá jako agregát (kolo, textový rescue).
+ */
+class TurnContext(
+    val provider: String = "",
+    val model: String = ""
+) {
     val loggedFoods = mutableSetOf<String>()
+
+    /** Tool volání přišlo jako text – model nepodporoval function calling. */
+    var viaTextFallback: Boolean = false
+
+    /** 0-based index kola tahu, ve kterém se teď volá nástroj. */
+    var round: Int = 0
 }
 
 /** Makra vyřešená pro konkrétní porci. */
@@ -47,25 +64,94 @@ class ToolExecutor @Inject constructor(
     private val workoutRepository: WorkoutRepository,
     private val factRepository: FactRepository,
     private val waterRepository: WaterRepository,
-    private val openFoodFactsClient: OpenFoodFactsClient
+    private val openFoodFactsClient: OpenFoodFactsClient,
+    private val statsRepository: LlmStatsRepository
 ) {
 
-    suspend fun execute(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult = try {
+    suspend fun execute(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult {
+        val started = System.currentTimeMillis()
         val name = call.name.removePrefix("default_api:")
-        when (name) {
-            ToolSpecs.SAVE_WEIGHT -> saveWeight(call)
-            ToolSpecs.LOG_FOOD -> logFood(call, turnContext)
-            ToolSpecs.LOG_WATER -> logWater(call)
-            ToolSpecs.LOG_WORKOUT -> logWorkout(call)
-            ToolSpecs.SAVE_FACT -> saveFact(call)
-            ToolSpecs.DELETE_FACT -> deleteFact(call)
-            else -> ToolExecutionResult(
+        val result = try {
+            when (name) {
+                ToolSpecs.SAVE_WEIGHT -> saveWeight(call)
+                ToolSpecs.LOG_FOOD -> logFood(call, turnContext)
+                ToolSpecs.LOG_WATER -> logWater(call)
+                ToolSpecs.LOG_WORKOUT -> logWorkout(call)
+                ToolSpecs.SAVE_FACT -> saveFact(call)
+                ToolSpecs.DELETE_FACT -> deleteFact(call)
+                else -> ToolExecutionResult(
+                    null,
+                    ToolSpecs.errorResult(context.getString(R.string.err_unknown_tool, call.name))
+                )
+            }
+        } catch (e: Exception) {
+            ToolExecutionResult(
                 null,
-                ToolSpecs.errorResult(context.getString(R.string.err_unknown_tool, call.name))
+                ToolSpecs.errorResult(e.message ?: context.getString(R.string.err_unexpected))
             )
         }
-    } catch (e: Exception) {
-        ToolExecutionResult(null, ToolSpecs.errorResult(e.message ?: context.getString(R.string.err_unexpected)))
+        recordStats(call, name, turnContext, result, started)
+        return result
+    }
+
+    /**
+     * Telemetrie pro benchmark (issue #6). Zápis je best-effort – chyba v
+     * statistice nikdy nesmí rozbít tah, proto je obalený v repository.
+     */
+    private suspend fun recordStats(
+        call: FunctionCall,
+        toolName: String,
+        turnContext: TurnContext,
+        result: ToolExecutionResult,
+        started: Long
+    ) {
+        val status = result.response["status"]?.jsonPrimitive?.contentOrNull()
+        // "already_logged"/"duplicate_suspected" nejsou chyba modelu – data se jen
+        // neuložila, protože už tam byla. Kdyby se to počítalo jako selhání,
+        // fail-rate v benchmarku by byl nesmyslně vysoký.
+        val outcome = when (status) {
+            STATUS_OK -> LlmToolCallEntity.OUTCOME_OK
+            STATUS_ALREADY_LOGGED, STATUS_DUPLICATE -> LlmToolCallEntity.OUTCOME_SKIPPED
+            else -> LlmToolCallEntity.OUTCOME_ERROR
+        }
+        val args = call.args
+        fun argInt(key: String): Int? = args?.get(key)?.jsonPrimitive?.intOrNull
+        fun argDouble(key: String): Double? = args?.get(key)?.jsonPrimitive?.doubleOrNull
+        // Finální hodnota se vrací v odpovědi nástroje, ne v argumentech modelu –
+        // pro log_food je to výsledek po případném dotazu na Open Food Facts.
+        fun respInt(key: String): Int? = result.response[key]?.jsonPrimitive?.intOrNull
+        fun respDouble(key: String): Double? = result.response[key]?.jsonPrimitive?.doubleOrNull
+        fun respStr(key: String): String? = result.response[key]?.jsonPrimitive?.contentOrNull()
+
+        val entity = LlmToolCallEntity(
+            timestamp = System.currentTimeMillis(),
+            provider = turnContext.provider,
+            model = turnContext.model,
+            toolName = toolName,
+            outcome = outcome,
+            errorKind = when {
+                outcome != LlmToolCallEntity.OUTCOME_ERROR -> null
+                toolName !in ToolSpecs.names -> LlmToolCallEntity.ERROR_UNKNOWN_TOOL
+                status == STATUS_ERROR -> LlmToolCallEntity.ERROR_THROWN
+                else -> LlmToolCallEntity.ERROR_MISSING_PARAM
+            },
+            durationMs = System.currentTimeMillis() - started,
+            viaTextFallback = turnContext.viaTextFallback,
+            round = turnContext.round,
+            foodName = args?.get("name")?.jsonPrimitive?.contentOrNull(),
+            quantityG = argDouble("quantity_g"),
+            modelCalories = argInt("calories"),
+            modelProteinG = argDouble("protein_g"),
+            modelCarbsG = argDouble("carbs_g"),
+            modelFatG = argDouble("fat_g"),
+            finalCalories = respInt("calories"),
+            finalProteinG = respDouble("protein_g"),
+            finalCarbsG = respDouble("carbs_g"),
+            finalFatG = respDouble("fat_g"),
+            finalSource = respStr("resolved_from"),
+            savedValue = argDouble("weight_kg") ?: argDouble("amount_ml") ?: argDouble("amount_minutes")
+        )
+        statsRepository.record(entity)
     }
 
     private suspend fun saveWeight(call: FunctionCall): ToolExecutionResult {
@@ -85,7 +171,7 @@ class ToolExecutor @Inject constructor(
                 return ToolExecutionResult(
                     null,
                     buildJsonObject {
-                        put("status", "already_logged")
+                        put("status", STATUS_ALREADY_LOGGED)
                         put("message", "Dnešní váha už je zapsaná ($formatted kg). Pokud se opravdu změnila, napiš ji znovu výslovně.")
                     }
                 )
@@ -151,7 +237,7 @@ class ToolExecutor @Inject constructor(
             return ToolExecutionResult(
                 null,
                 buildJsonObject {
-                    put("status", "already_logged")
+                    put("status", STATUS_ALREADY_LOGGED)
                     put("message", context.getString(R.string.ev_already_logged))
                 }
             )
@@ -172,7 +258,7 @@ class ToolExecutor @Inject constructor(
                 return ToolExecutionResult(
                     null,
                     buildJsonObject {
-                        put("status", "duplicate_suspected")
+                        put("status", STATUS_DUPLICATE)
                         put("already_logged_at", timeStr)
                         put("already_logged_kcal", kcalStr)
                         put("message", context.getString(R.string.ev_duplicate_suspected, timeStr, kcalStr))
@@ -236,13 +322,19 @@ class ToolExecutor @Inject constructor(
         }
 
         return ToolExecutionResult(event, buildJsonObject {
-            put("status", "ok")
+            put("status", STATUS_OK)
             put(
                 "logged_at",
                 java.time.Instant.ofEpochMilli(targetTs).atZone(zone)
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
             )
             put("source", sourceLabel)
+            // Strojový zdroj pro benchmark: "openfoodfacts" nebo "model".
+            put("resolved_from", if (source == cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_API) {
+                LlmToolCallEntity.SOURCE_OFF
+            } else {
+                LlmToolCallEntity.SOURCE_MODEL
+            })
             put("quantity_grams", quantityG ?: 100.0)
             resolved.calories?.let { put("calories", it) }
             resolved.proteinG?.let { put("protein_g", it) }
@@ -257,7 +349,7 @@ class ToolExecutor @Inject constructor(
         return ToolExecutionResult(
             context.getString(R.string.ev_water_saved, amountMl),
             buildJsonObject {
-                put("status", "ok")
+                put("status", STATUS_OK)
                 put("logged_ml", amountMl)
             }
         )
@@ -318,6 +410,13 @@ class ToolExecutor @Inject constructor(
         if (this is kotlinx.serialization.json.JsonNull) null else content
 
     companion object {
+        // Statusy, které posíláme modelu zpátky ve functionResponse – podle nich
+        // se v telemetrii rozlišuje „zapsáno" / „přeskočeno" / „selhalo" (issue #6).
+        const val STATUS_OK = "ok"
+        const val STATUS_ERROR = "error"
+        const val STATUS_ALREADY_LOGGED = "already_logged"
+        const val STATUS_DUPLICATE = "duplicate_suspected"
+
         private const val DUPLICATE_WINDOW_MS = 2 * 60 * 60 * 1000L
         private const val FUTURE_TOLERANCE_MS = 5 * 60 * 1000L
         private const val MAX_PAST_MS = 7L * 24 * 60 * 60 * 1000
