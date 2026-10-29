@@ -3,8 +3,16 @@ package cz.rzahr.aicoach.llm
 import cz.rzahr.aicoach.data.repo.SettingsRepository
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
+
+/**
+ * Jednotný seznam modelů. [complete] = oba provideři odpověděli; jen tehdy smí
+ * volající mazat výjimky pro modely, které v seznamu chybí (jinak by výpadek
+ * sítě smazal uživatelovo nastavení viditelnosti).
+ */
+data class UnifiedModels(val names: List<String>, val complete: Boolean)
 
 /**
  * Fasáda nad LLM providery – volí aktivního klienta podle nastavení
@@ -36,19 +44,26 @@ class LlmRouter @Inject constructor(
      * pak modely z Gemini API. Každý provider se ptá jen když má klíč
      * (bez klíče jeho fetch hodí a daná část seznamu je prázdná).
      */
-    suspend fun fetchUnifiedModels(): List<String> {
+    suspend fun fetchUnifiedModels(): UnifiedModels {
+        var complete = true
         val openRouterModels = try {
             openRouter.fetchModelNames()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
+            complete = false
             emptyList()
         }
         val geminiModels = try {
             gemini.fetchModelNames()
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
+            complete = false
             emptyList()
         }
         val qwen = openRouterModels.filter { it == SettingsRepository.DEFAULT_OPENROUTER_MODEL }
-        return qwen + geminiModels
+        return UnifiedModels(qwen + geminiModels, complete)
     }
 
     /** API klíč aktivního providera (pro kontrolu vyplněnosti). */

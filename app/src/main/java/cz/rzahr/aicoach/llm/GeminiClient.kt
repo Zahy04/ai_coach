@@ -81,22 +81,22 @@ class GeminiClient @Inject constructor(
                 val rescue = ToolTextFallback.extractExecutableCalls(roundText)
                 if (rescue.isNotEmpty()) {
                     Log.d(TAG, "chat: rescue $round – textových pseudo-volání: ${rescue.size}")
-                    val responseParts = rescue.map { call ->
-                        val result = toolExecutor.execute(call, turnContext)
-                        result.event?.let { events.add(it) }
-                        Part(functionResponse = FunctionResponse(name = call.name, response = result.response))
+                    rescue.forEach { call ->
+                        toolExecutor.execute(call, turnContext).event?.let { events.add(it) }
                     }
-                    contents.add(Content(role = "user", parts = responseParts))
-                    // Pokračujeme na další kolo, aby model po rescue dopsal přirozenou odpověď.
-                    return@repeat
+                    // Kolo končí tady: functionResponse bez předchozího functionCall API odmítne
+                    // (HTTP 400), a data už jsou zapsaná – retry by je zdvojil.
                 }
                 val finalText = narrative.joinToString("\n\n").trim()
+                if (finalText.isEmpty() && (events.isNotEmpty() || rescue.isNotEmpty())) {
+                    return@withContext ChatTurnResult(ChatTexts.done(), events)
+                }
                 if (finalText.isEmpty()) throw GeminiException("Model vrátil prázdnou odpověď.")
                 val clean = ToolTextFallback.sanitizeModelText(finalText).trim()
                 if (clean.isEmpty()) {
                     // Nástroje proběhly, ale nezbyl žádný text – radši stručné potvrzení
                     // než prázdná bublina nebo chyba.
-                    return@withContext ChatTurnResult("Hotovo. ✅", events)
+                    return@withContext ChatTurnResult(ChatTexts.done(), events)
                 }
                 return@withContext ChatTurnResult(clean, events)
             }
@@ -197,6 +197,10 @@ class GeminiClient @Inject constructor(
                 if (parts.isEmpty()) {
                     throw GeminiException("Síťová chyba během streamování: ${e.message}")
                 }
+                // Částečnou odpověď nevydávat za celou.
+                val notice = ChatTexts.truncated()
+                onDelta(notice)
+                parts.add(Part(text = notice))
             }
             return Content(role = "model", parts = parts)
         }
@@ -321,34 +325,14 @@ class GeminiClient @Inject constructor(
             // dřív se nabízely a po přepnutí na ně přestal fungovat tool calling.
             .filter { name -> EXCLUDED_MODEL_SUBSTRINGS.none { name.contains(it, ignoreCase = true) } }
             .distinct()
-            .sortedWith(modelComparator())
-    }
-
-    private fun modelComparator(): Comparator<String> = Comparator { a, b ->
-        fun stability(name: String): Int =
-            if (name.contains("preview", true) || name.contains("beta", true) ||
-                name.contains("exp", true) || name.contains("alpha", true)
-            ) 1 else 0
-
-        fun family(name: String): Int {
-            val n = name.lowercase().replace('_', '-')
-            return when {
-                // Plný flash je pro function calling spolehlivější než lite –
-                // proto ho řadíme výš (lite zůstává v nabídce).
-                n.contains("flash") && !n.contains("lite") -> 0
-                n.contains("flash-lite") || n.contains("flashlite") -> 1
-                n.contains("pro") -> 2
-                else -> 3
-            }
-        }
-        compareValuesBy(a, b, ::stability, ::family, { it })
-            .let { if (it != 0) it else b.compareTo(a) }
+            .sortedWith(MODEL_COMPARATOR)
     }
 
     private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
         enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response)
+                // Při zrušení v mezičase odpověď zavřít, jinak visí spojení.
+                continuation.resume(response) { response.close() }
             }
 
             override fun onFailure(call: Call, e: IOException) {
@@ -366,6 +350,31 @@ class GeminiClient @Inject constructor(
         private const val MAX_TOOL_ROUNDS = 6
         private const val MAX_RETRIES = 6
         private const val CHAT_TEMPERATURE = 0.3f
+
+        /**
+         * Stabilní před preview, pak rodina (flash, lite, pro, ostatní),
+         * v rámci rodiny nejnovější verze první.
+         */
+        internal val MODEL_COMPARATOR: Comparator<String> = Comparator { a, b ->
+            fun stability(name: String): Int =
+                if (name.contains("preview", true) || name.contains("beta", true) ||
+                    name.contains("exp", true) || name.contains("alpha", true)
+                ) 1 else 0
+
+            fun family(name: String): Int {
+                val n = name.lowercase().replace('_', '-')
+                return when {
+                    // Plný flash je pro function calling spolehlivější než lite –
+                    // proto ho řadíme výš (lite zůstává v nabídce).
+                    n.contains("flash") && !n.contains("lite") -> 0
+                    n.contains("flash-lite") || n.contains("flashlite") -> 1
+                    n.contains("pro") -> 2
+                    else -> 3
+                }
+            }
+            compareValuesBy(a, b, ::stability, ::family).let { if (it != 0) it else b.compareTo(a) }
+        }
+
         private val EXCLUDED_MODEL_SUBSTRINGS = listOf(
             "embedding", "embed", "imagen", "image", "tts", "speech",
             "veo", "video", "audio", "aqua", "lyria", "music"

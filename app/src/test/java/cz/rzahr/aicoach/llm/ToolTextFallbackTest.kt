@@ -136,8 +136,14 @@ class ToolTextFallbackTest {
     }
 
     @Test
-    fun `delete_fact vyzaduje id`() {
-        assertEquals(1, ToolTextFallback.extractExecutableCalls("delete_fact(fact_id=12)").size)
+    fun `delete_fact se z textu nikdy nespusti`() {
+        // Stačí, aby model volání citoval ve vysvětlení – mazání musí jít jen přes skutečný function call.
+        assertTrue(ToolTextFallback.extractExecutableCalls("delete_fact(fact_id=12)").isEmpty())
+        assertTrue(
+            ToolTextFallback.extractExecutableCalls(
+                "Poznámku smažeš tak, že mi napíšeš, ať zavolám delete_fact(fact_id=3)."
+            ).isEmpty()
+        )
         assertTrue(ToolTextFallback.extractExecutableCalls("delete_fact()").isEmpty())
     }
 
@@ -146,5 +152,30 @@ class ToolTextFallbackTest {
         assertNull(ToolTextFallback.toFunctionCall(
             ToolTextFallback.PseudoCall("smazat_vse", "", 0, 1)
         ))
+    }
+
+    @Test
+    fun `desetinna carka neusekne dalsi argumenty`() {
+        val calls = ToolTextFallback.extractExecutableCalls(
+            "log_food(name=\"rýže\", quantity_g=150,5, calories=190)"
+        )
+        assertEquals(1, calls.size)
+        val args = calls[0].args!!
+        assertEquals(150.5, args["quantity_g"]!!.jsonPrimitive.doubleOrNull!!, 0.0001)
+        assertEquals(190, args["calories"]!!.jsonPrimitive.intOrNull)
+    }
+
+    @Test
+    fun `carka v uvozovkach zustane soucasti textu`() {
+        val calls = ToolTextFallback.extractExecutableCalls("log_food(name=\"mléko 1,5 %\", quantity_g=250)")
+        assertEquals("mléko 1,5 %", calls.single().args!!["name"]!!.jsonPrimitive.content)
+    }
+
+    @Test
+    fun `sanitizace zachova odsazeni vnorenych seznamu`() {
+        val text = "Plán:\n- snídaně\n    - ovesná kaše\nlog_water(amount_ml=250)"
+        val clean = ToolTextFallback.sanitizeModelText(text)
+        assertTrue(clean.contains("\n    - ovesná kaše"))
+        assertFalse(clean.contains("log_water"))
     }
 }

@@ -278,6 +278,8 @@
     <string name="food_delete_otherday_title">Delete meal from another day?</string>
     <string name="food_delete_otherday_text">Do you really want to delete \"%1$s\" (%2$s) from %3$s?</string>
     <string name="err_missing_param">Missing required parameter %1$s.</string>
+    <string name="err_value_out_of_range">Value %1$s is outside the plausible range for %2$s – nothing was saved. Ask the user to confirm the value.</string>
+    <string name="err_fact_not_found">Note #%1$d does not exist – nothing was deleted.</string>
     <string name="err_unknown_tool">Unknown tool: %1$s</string>
     <string name="err_unexpected">Unexpected error</string>
     <string name="err_network">Network error — check your connection.</string>

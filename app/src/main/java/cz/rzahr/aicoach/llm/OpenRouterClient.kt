@@ -150,20 +150,20 @@ class OpenRouterClient @Inject constructor(
                 val rescue = ToolTextFallback.extractExecutableCalls(roundText)
                 if (rescue.isNotEmpty()) {
                     Log.d(TAG, "chat: rescue $round – textových pseudo-volání: ${rescue.size}")
-                    if (roundText.isNotBlank()) messages += assistantMessage(roundText, emptyList())
-                    rescue.forEachIndexed { i, call ->
-                        val result = toolExecutor.execute(call, turnContext)
-                        result.event?.let { events.add(it) }
-                        messages += toolMessage("rescue-$round-$i", result.response)
+                    rescue.forEach { call ->
+                        toolExecutor.execute(call, turnContext).event?.let { events.add(it) }
                     }
-                    // Pokračujeme na další kolo, aby model po rescue dopsal přirozenou odpověď.
-                    return@repeat
+                    // Kolo končí tady: zpráva role=tool bez odpovídajícího tool_calls
+                    // je pro OpenAI API neplatná (HTTP 400) a data už jsou zapsaná.
                 }
                 val finalText = narrative.joinToString("\n\n").trim()
+                if (finalText.isEmpty() && (events.isNotEmpty() || rescue.isNotEmpty())) {
+                    return@withContext ChatTurnResult(ChatTexts.done(), events)
+                }
                 if (finalText.isEmpty()) throw OpenRouterException("Model vrátil prázdnou odpověď.")
                 val clean = ToolTextFallback.sanitizeModelText(finalText).trim()
                 if (clean.isEmpty()) {
-                    return@withContext ChatTurnResult("Hotovo. ✅", events)
+                    return@withContext ChatTurnResult(ChatTexts.done(), events)
                 }
                 return@withContext ChatTurnResult(clean, events)
             }
@@ -268,9 +268,15 @@ class OpenRouterClient @Inject constructor(
                     }
                 }
             } catch (e: IOException) {
-                if (text.isEmpty() && toolAcc.isEmpty()) {
+                // Bez textu není co ukázat; rozpracované volání nástroje s useknutými
+                // argumenty se nesmí spustit.
+                if (text.isEmpty() || toolAcc.isNotEmpty()) {
                     throw OpenRouterException("Síťová chyba během streamování: ${e.message}")
                 }
+                // Částečnou odpověď nevydávat za celou.
+                val notice = ChatTexts.truncated()
+                text.append(notice)
+                onDelta(notice)
             }
             val calls = toolAcc.toSortedMap().values.map { acc ->
                 val argsText = acc.args.toString()
@@ -321,7 +327,8 @@ class OpenRouterClient @Inject constructor(
     private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
         enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response)
+                // Při zrušení v mezičase odpověď zavřít, jinak visí spojení.
+                continuation.resume(response) { response.close() }
             }
 
             override fun onFailure(call: Call, e: IOException) {

@@ -277,6 +277,8 @@
     <string name="food_delete_otherday_title">Smazat jídlo z jiného dne?</string>
     <string name="food_delete_otherday_text">Opravdu chceš smazat „%1$s“ (%2$s) z %3$s?</string>
     <string name="err_missing_param">Chybí povinný parametr %1$s.</string>
+    <string name="err_value_out_of_range">Hodnota %1$s je mimo věrohodný rozsah pro %2$s – nic se neuložilo. Požádej uživatele o potvrzení hodnoty.</string>
+    <string name="err_fact_not_found">Poznámka #%1$d neexistuje – nic se nesmazalo.</string>
     <string name="err_unknown_tool">Neznámý nástroj: %1$s</string>
     <string name="err_unexpected">Neočekávaná chyba</string>
     <string name="err_network">Síťová chyba — zkontroluj připojení.</string>

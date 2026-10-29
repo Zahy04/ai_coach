@@ -203,8 +203,8 @@ class SettingsViewModel @Inject constructor(
             _modelsLoading.value = true
             try {
                 val fresh = llmRouter.fetchUnifiedModels()
-                _allModels.value = fresh
-                settingsRepository.pruneModelOverrides(fresh.toSet())
+                if (fresh.names.isNotEmpty()) _allModels.value = fresh.names
+                if (fresh.complete) settingsRepository.pruneModelOverrides(fresh.names.toSet())
             } catch (_: Exception) {
                 // chybu ignorujeme – uživatel může zadat model ručně
             } finally {
