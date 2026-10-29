@@ -94,7 +94,7 @@ class OpenFoodFactsClient @Inject constructor(
     private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
         enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
-                continuation.resume(response) { response.close() }
+                continuation.resume(response) { _, value, _ -> value.close() }
             }
 
             override fun onFailure(call: Call, e: IOException) {

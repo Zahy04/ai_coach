@@ -332,7 +332,7 @@ class GeminiClient @Inject constructor(
         enqueue(object : Callback {
             override fun onResponse(call: Call, response: Response) {
                 // Při zrušení v mezičase odpověď zavřít, jinak visí spojení.
-                continuation.resume(response) { response.close() }
+                continuation.resume(response) { _, value, _ -> value.close() }
             }
 
             override fun onFailure(call: Call, e: IOException) {
