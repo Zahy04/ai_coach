@@ -210,7 +210,7 @@ fun WeightChart(
             // Měření.
             rawValues.forEachIndexed { index, value ->
                 if (xs[index] <= p) {
-                    drawCircle(pointColor, radius = 3.dp.toPx(), center = Offset(x(xs[index]), y(value)))
+                    drawCircle(pointColor.copy(alpha = 0.45f), radius = 1.75.dp.toPx(), center = Offset(x(xs[index]), y(value)))
                 }
             }
             if (p >= 1f) {

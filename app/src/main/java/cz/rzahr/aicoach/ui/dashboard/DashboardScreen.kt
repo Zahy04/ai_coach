@@ -80,7 +80,6 @@ import cz.rzahr.aicoach.ui.components.VerticalHairline
 import cz.rzahr.aicoach.ui.components.WeekBars
 import cz.rzahr.aicoach.ui.navigation.Routes
 import cz.rzahr.aicoach.ui.theme.dataColors
-import cz.rzahr.aicoach.ui.theme.inverseDataColors
 import cz.rzahr.aicoach.util.Locales
 import cz.rzahr.aicoach.util.WeeklyGoal
 import cz.rzahr.aicoach.util.formatDate
@@ -325,15 +324,15 @@ private fun appLocale(): Locale = Locale.forLanguageTag(Locales.currentTag())
 /** Inkoustová karta: kalorie dne jako jedno velké číslo a pod ním bílkoviny. */
 @Composable
 private fun EnergyHero(state: DashboardState, animate: Boolean) {
-    val onInk = MaterialTheme.colorScheme.inverseOnSurface
-    val data = inverseDataColors()
+    val onInk = MaterialTheme.colorScheme.onSurface
+    val data = dataColors()
     val shown by animateIntAsState(
         targetValue = state.todayCalories,
         animationSpec = tween(if (animate) 900 else 0),
         label = "kcal"
     )
     val remaining = state.calorieGoal - state.todayCalories
-    SignalCard(container = MaterialTheme.colorScheme.inverseSurface, border = null, contentPadding = 22.dp) {
+    SignalCard(contentPadding = 22.dp) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Eyebrow(stringResource(R.string.dashboard_energy_today), color = onInk.copy(alpha = 0.65f), modifier = Modifier.weight(1f))
             Pill(
@@ -351,7 +350,7 @@ private fun EnergyHero(state: DashboardState, animate: Boolean) {
         LinearMeter(
             progress = if (state.calorieGoal > 0) state.todayCalories / state.calorieGoal.toFloat() else 0f,
             color = data.calories,
-            track = onInk.copy(alpha = 0.12f),
+            track = MaterialTheme.colorScheme.surfaceVariant,
             height = 12.dp
         )
         Spacer(Modifier.height(18.dp))
@@ -372,7 +371,7 @@ private fun EnergyHero(state: DashboardState, animate: Boolean) {
         LinearMeter(
             progress = if (state.proteinGoal > 0) state.todayProtein / state.proteinGoal.toFloat() else 0f,
             color = data.protein,
-            track = onInk.copy(alpha = 0.12f),
+            track = MaterialTheme.colorScheme.surfaceVariant,
             height = 6.dp
         )
     }

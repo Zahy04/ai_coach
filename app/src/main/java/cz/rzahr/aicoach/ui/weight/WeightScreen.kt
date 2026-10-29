@@ -237,8 +237,8 @@ private fun CurrentWeightCard(
     periodDays: Int?
 ) {
     val latest = all.first()
-    SignalCard(container = MaterialTheme.colorScheme.inverseSurface, border = null, contentPadding = 22.dp) {
-        val onInk = MaterialTheme.colorScheme.inverseOnSurface
+    SignalCard(contentPadding = 22.dp) {
+        val onInk = MaterialTheme.colorScheme.onSurface
         Eyebrow(stringResource(R.string.weight_current), color = onInk.copy(alpha = 0.65f))
         Spacer(Modifier.height(8.dp))
         MetricText(value = latest.weightKg.oneDecimal(), unit = "kg", color = onInk)
