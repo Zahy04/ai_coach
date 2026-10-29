@@ -30,5 +30,10 @@ hs_err_pid*
 
 # Build outputs
 *.apk
+*.apk.idsig
 *.aab
 output.json
+
+# Lokální pokusy (nativní knihovny llama.cpp, PID lokálního serveru)
+app/src/main/jniLibs/
+server.pid

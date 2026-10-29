@@ -34,6 +34,13 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        // Aplikace nemá žádný nativní kód. Lokální složka src/main/jniLibs (pokusy
+        // s llama.cpp, 235 MB) se jinak automaticky balí do každého APK.
+        getByName("main") {
+            jniLibs.setSrcDirs(emptyList<String>())
+        }
+    }
 }
 
 kotlin {
