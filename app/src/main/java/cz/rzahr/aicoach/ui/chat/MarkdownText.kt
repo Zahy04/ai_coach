@@ -51,10 +51,13 @@ fun MarkdownText(
                     )
                 }
 
-                line.startsWith("- ") || line.startsWith("* ") || line.startsWith("• ") -> {
-                    Row(Modifier.padding(start = 4.dp)) {
+                isBullet(line) -> {
+                    // Odsazení (vnořený seznam) → víc odsadit, aby byla vidět hierarchie.
+                    val indent = line.takeWhile { it == ' ' }.length.coerceAtMost(8)
+                    val item = line.trimStart().substring(2).trim()
+                    Row(Modifier.padding(start = (4 + indent * 6).dp)) {
                         Text("•  ", style = style, color = color, fontWeight = FontWeight.Bold)
-                        Text(annotatedInline(line.substring(2).trim()), style = style, color = color)
+                        Text(annotatedInline(item), style = style, color = color)
                     }
                 }
 
@@ -112,4 +115,9 @@ private fun annotatedInline(text: String): AnnotatedString = buildAnnotatedStrin
             }
         }
     }
+}
+
+private fun isBullet(line: String): Boolean {
+    val t = line.trimStart()
+    return t.startsWith("- ") || t.startsWith("* ") || t.startsWith("• ")
 }

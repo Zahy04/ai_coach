@@ -16,7 +16,7 @@
     <string name="photos_folder_create">Create folder</string>
     <string name="photos_folder_name">Folder name</string>
     <string name="photos_add">Add photos</string>
-    <string name="photos_imported">+%1$s imported</string>
+    <string name="photos_imported">%1$s imported</string>
     <string name="photos_move_to">Move to…</string>
     <string name="photos_select_mode">Select</string>
     <string name="photos_select_done">Done selecting</string>
@@ -53,8 +53,8 @@
     <string name="dashboard_calories_week_label">Calories · this week</string>
     <string name="dashboard_weekly_goal_label">Weekly goal</string>
     <string name="dashboard_weekly_pace">Pace: %1$d of %2$d kcal expected</string>
-    <string name="dashboard_weekly_remaining">%1$d kcal left until Sunday (%2$d days → ~%3$d kcal/day)</string>
-    <string name="dashboard_weekly_over">Over by %1$d kcal</string>
+    <string name="dashboard_weekly_remaining">%1$s kcal left until Sunday (%2$d days → ~%3$s kcal/day)</string>
+    <string name="dashboard_weekly_over">Over by %1$s kcal</string>
     <string name="stat_weight">Weight</string>
     <string name="stat_weight_goal_left">goal %1$.1f kg · %2$.1f kg to go</string>
     <string name="stat_photos">Photos</string>
@@ -318,4 +318,87 @@
     <string name="summary_ask">Please evaluate my week: what I\'m doing well, what to improve, and give me 3 concrete recommendations for next week.</string>
     <string name="summary_meals_header">Meals (%1$d):</string>
     <string name="summary_workouts_header">Workouts (%1$d):</string>
+
+    <!-- Redesign „Signal" -->
+    <string name="tab_today">Today</string>
+    <string name="tab_coach">Coach</string>
+    <string name="fact_deleted">Note deleted</string>
+    <string name="undo">Undo</string>
+    <string name="greeting_morning">Good morning</string>
+    <string name="greeting_afternoon">Good afternoon</string>
+    <string name="greeting_evening">Good evening</string>
+    <string name="dashboard_energy_today">Energy today</string>
+    <string name="kcal_left">%1$s kcal left</string>
+    <string name="kcal_over">%1$s kcal over</string>
+    <string name="kcal_of_goal">/ %1$s kcal</string>
+    <string name="protein_label">Protein</string>
+    <string name="grams_of_goal">%1$d / %2$d g</string>
+    <string name="this_week">This week</string>
+    <string name="pace_on_track">On track</string>
+    <string name="pace_ahead">Ahead of plan</string>
+    <string name="water_title">Water</string>
+    <string name="of_value_ml">of %1$s ml</string>
+    <string name="weight_to_goal">%1$s kg to goal %2$s kg</string>
+    <string name="weight_since_last">%1$s kg since last</string>
+    <string name="goal_short">Goal %1$s kg</string>
+    <string name="dashboard_talk_to_coach">Tell the coach</string>
+    <string name="show_less">Show less</string>
+    <string name="show_all_count">Show all (%1$d)</string>
+    <string name="chat_attach_failed">Couldn\'t load the photo.</string>
+    <string name="chat_empty_eyebrow">Your coach</string>
+    <string name="chat_empty_title">What shall we log today?</string>
+    <string name="chat_empty_body">Write it in your own words — meals, weight, water or training. I\'ll log it and keep track for you.</string>
+    <string name="chat_attached_photo">Attached photo</string>
+    <string name="food_deleted">Deleted “%1$s”</string>
+    <string name="food_today_total">Today %1$s / %2$s kcal</string>
+    <string name="kcal_value_of">%1$s / %2$s kcal</string>
+    <string name="food_source_manual">manual</string>
+    <string name="food_source_coach">coach</string>
+    <string name="food_kcal_label">Calories (kcal)</string>
+    <string name="macro_protein_label">Protein (g)</string>
+    <string name="macro_carbs_label">Carbs (g)</string>
+    <string name="macro_fat_label">Fat (g)</string>
+    <string name="weight_deleted">Weight entry deleted</string>
+    <string name="weight_empty_title">No weigh-ins yet</string>
+    <string name="weight_empty_desc">Add your first weight, or just tell the coach.</string>
+    <string name="weight_current">Current weight</string>
+    <string name="weight_change_days">%1$d days</string>
+    <string name="weight_change_all">all time</string>
+    <string name="weight_history">History</string>
+    <string name="weight_projection">At this pace you\'ll reach %1$s kg around %2$s.</string>
+    <string name="weight_invalid">Enter a weight between 20 and 400 kg</string>
+    <string name="photos_delete_confirm_text">The photo files will be removed from this device. This can\'t be undone.</string>
+    <string name="photos_folder_empty_title">No photos here yet</string>
+    <string name="compare_missing_title">Photo not found</string>
+    <string name="compare_missing_desc">One of the photos was deleted or moved.</string>
+    <string name="mensa_today_lunch">Today\'s lunch</string>
+    <string name="rating_label_green">Fit pick</string>
+    <string name="rating_label_yellow">Balanced</string>
+    <string name="rating_label_red">Heavy</string>
+    <string name="settings_pat_help">Create a fine-grained token at github.com/settings/personal-access-tokens/new for the ai_coach repository with “Issues: Read and write”, then save it here.</string>
+    <string name="settings_github_title">GitHub token</string>
+    <string name="issue_device_info_note">Your device model and Android version are added to the public issue.</string>
+    <plurals name="streak_days">
+        <item quantity="one">day in a row</item>
+        <item quantity="other">days in a row</item>
+    </plurals>
+    <plurals name="photo_count">
+        <item quantity="one">%d photo</item>
+        <item quantity="other">%d photos</item>
+    </plurals>
+    <plurals name="photos_selected">
+        <item quantity="one">%d selected</item>
+        <item quantity="other">%d selected</item>
+    </plurals>
+    <plurals name="photos_delete_confirm">
+        <item quantity="one">Delete %d photo?</item>
+        <item quantity="other">Delete %d photos?</item>
+    </plurals>
+    <string-array name="chat_suggestions">
+        <item>Oatmeal with a banana for breakfast</item>
+        <item>I weigh 78.5 kg today</item>
+        <item>Half a litre of water</item>
+        <item>Ran 5 km in 28 minutes</item>
+        <item>How am I doing this week?</item>
+    </string-array>
 </resources>

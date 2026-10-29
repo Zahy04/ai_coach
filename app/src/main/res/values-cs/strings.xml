@@ -16,7 +16,7 @@
     <string name="photos_folder_create">Vytvořit složku</string>
     <string name="photos_folder_name">Název složky</string>
     <string name="photos_add">Přidat fotky</string>
-    <string name="photos_imported">+%1$s přidáno</string>
+    <string name="photos_imported">Přidáno: %1$s</string>
     <string name="photos_move_to">Přesunout do…</string>
     <string name="photos_select_mode">Vybrat</string>
     <string name="photos_select_done">Hotovo</string>
@@ -52,8 +52,8 @@
     <string name="dashboard_calories_week_label">Kalorie · tento týden</string>
     <string name="dashboard_weekly_goal_label">Týdenní cíl</string>
     <string name="dashboard_weekly_pace">Tempo: snědeno %1$d z očekávaných %2$d kcal</string>
-    <string name="dashboard_weekly_remaining">Zbývá %1$d kcal do neděle (%2$d dní → ~%3$d kcal/den)</string>
-    <string name="dashboard_weekly_over">Překročeno o %1$d kcal</string>
+    <string name="dashboard_weekly_remaining">Zbývá %1$s kcal do neděle (%2$d dní → ~%3$s kcal/den)</string>
+    <string name="dashboard_weekly_over">Překročeno o %1$s kcal</string>
     <string name="stat_weight">Váha</string>
     <string name="stat_weight_goal_left">cíl %1$.1f kg · zbývá %2$.1f kg</string>
     <string name="stat_photos">Fotky</string>
@@ -317,4 +317,95 @@
     <string name="summary_ask">Vyhodnoť mi prosím tento týden: co dělám dobře, co zlepšit, a dej mi 3 konkrétní doporučení na další týden.</string>
     <string name="summary_meals_header">Jídla (%1$d):</string>
     <string name="summary_workouts_header">Tréninky (%1$d):</string>
+
+    <!-- Redesign „Signal" -->
+    <string name="tab_today">Dnes</string>
+    <string name="tab_coach">Kouč</string>
+    <string name="fact_deleted">Poznámka smazána</string>
+    <string name="undo">Zpět</string>
+    <string name="greeting_morning">Dobré ráno</string>
+    <string name="greeting_afternoon">Dobré odpoledne</string>
+    <string name="greeting_evening">Dobrý večer</string>
+    <string name="dashboard_energy_today">Energie dnes</string>
+    <string name="kcal_left">zbývá %1$s kcal</string>
+    <string name="kcal_over">o %1$s kcal přes</string>
+    <string name="kcal_of_goal">/ %1$s kcal</string>
+    <string name="protein_label">Bílkoviny</string>
+    <string name="grams_of_goal">%1$d / %2$d g</string>
+    <string name="this_week">Tento týden</string>
+    <string name="pace_on_track">V plánu</string>
+    <string name="pace_ahead">Nad plánem</string>
+    <string name="water_title">Voda</string>
+    <string name="of_value_ml">z %1$s ml</string>
+    <string name="weight_to_goal">%1$s kg k cíli %2$s kg</string>
+    <string name="weight_since_last">%1$s kg od minula</string>
+    <string name="goal_short">Cíl %1$s kg</string>
+    <string name="dashboard_talk_to_coach">Napsat kouči</string>
+    <string name="show_less">Zobrazit méně</string>
+    <string name="show_all_count">Zobrazit vše (%1$d)</string>
+    <string name="chat_attach_failed">Fotku se nepodařilo načíst.</string>
+    <string name="chat_empty_eyebrow">Tvůj kouč</string>
+    <string name="chat_empty_title">Co dnes zapíšeme?</string>
+    <string name="chat_empty_body">Napiš to vlastními slovy — jídlo, váhu, vodu nebo trénink. Zapíšu to a ohlídám za tebe.</string>
+    <string name="chat_attached_photo">Přiložená fotka</string>
+    <string name="food_deleted">Smazáno: %1$s</string>
+    <string name="food_today_total">Dnes %1$s / %2$s kcal</string>
+    <string name="kcal_value_of">%1$s / %2$s kcal</string>
+    <string name="food_source_manual">ručně</string>
+    <string name="food_source_coach">kouč</string>
+    <string name="food_kcal_label">Kalorie (kcal)</string>
+    <string name="macro_protein_label">Bílkoviny (g)</string>
+    <string name="macro_carbs_label">Sacharidy (g)</string>
+    <string name="macro_fat_label">Tuky (g)</string>
+    <string name="weight_deleted">Záznam váhy smazán</string>
+    <string name="weight_empty_title">Zatím žádné vážení</string>
+    <string name="weight_empty_desc">Přidej první vážení, nebo ho prostě napiš kouči.</string>
+    <string name="weight_current">Aktuální váha</string>
+    <string name="weight_change_days">%1$d dní</string>
+    <string name="weight_change_all">celkem</string>
+    <string name="weight_history">Historie</string>
+    <string name="weight_projection">Při současném tempu dosáhneš %1$s kg kolem %2$s.</string>
+    <string name="weight_invalid">Zadej váhu mezi 20 a 400 kg</string>
+    <string name="photos_delete_confirm_text">Soubory fotek se z tohoto zařízení odstraní. Nejde to vrátit.</string>
+    <string name="photos_folder_empty_title">Zatím tu nejsou fotky</string>
+    <string name="compare_missing_title">Fotka nenalezena</string>
+    <string name="compare_missing_desc">Jedna z fotek byla smazána nebo přesunuta.</string>
+    <string name="mensa_today_lunch">Dnešní obědy</string>
+    <string name="rating_label_green">Fit volba</string>
+    <string name="rating_label_yellow">Vyvážené</string>
+    <string name="rating_label_red">Těžké</string>
+    <string name="settings_pat_help">Vytvoř na github.com/settings/personal-access-tokens/new token pro repozitář ai_coach s oprávněním „Issues: Read and write“ a ulož ho sem.</string>
+    <string name="settings_github_title">GitHub token</string>
+    <string name="issue_device_info_note">K veřejnému issue se přidá model zařízení a verze Androidu.</string>
+    <plurals name="streak_days">
+        <item quantity="one">den v řadě</item>
+        <item quantity="few">dny v řadě</item>
+        <item quantity="many">dne v řadě</item>
+        <item quantity="other">dní v řadě</item>
+    </plurals>
+    <plurals name="photo_count">
+        <item quantity="one">%d fotka</item>
+        <item quantity="few">%d fotky</item>
+        <item quantity="many">%d fotky</item>
+        <item quantity="other">%d fotek</item>
+    </plurals>
+    <plurals name="photos_selected">
+        <item quantity="one">%d vybraná</item>
+        <item quantity="few">%d vybrané</item>
+        <item quantity="many">%d vybrané</item>
+        <item quantity="other">%d vybraných</item>
+    </plurals>
+    <plurals name="photos_delete_confirm">
+        <item quantity="one">Smazat %d fotku?</item>
+        <item quantity="few">Smazat %d fotky?</item>
+        <item quantity="many">Smazat %d fotky?</item>
+        <item quantity="other">Smazat %d fotek?</item>
+    </plurals>
+    <string-array name="chat_suggestions">
+        <item>K snídani ovesná kaše s banánem</item>
+        <item>Dnes vážím 78,5 kg</item>
+        <item>Půl litru vody</item>
+        <item>Běh 5 km za 28 minut</item>
+        <item>Jak si tento týden vedu?</item>
+    </string-array>
 </resources>

@@ -50,12 +50,16 @@ class PhotosFolderViewModel @Inject constructor(
     fun addPhotos(uris: List<Uri>) {
         viewModelScope.launch {
             val count = runCatching { photoRepository.addPhotosFromUris(uris, pose) }.getOrDefault(0)
-            if (count > 0) _events.tryEmit("+$count")
+            if (count > 0) _events.tryEmit(count.toString())
         }
     }
 
     fun delete(photo: ProgressPhotoEntity) {
         viewModelScope.launch { photoRepository.delete(photo) }
+    }
+
+    fun deleteAll(photos: List<ProgressPhotoEntity>) {
+        viewModelScope.launch { photos.forEach { photoRepository.delete(it) } }
     }
 
     suspend fun createCaptureFile(): File = photoRepository.createCaptureFile()

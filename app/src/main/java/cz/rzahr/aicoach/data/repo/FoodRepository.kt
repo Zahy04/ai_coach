@@ -60,6 +60,11 @@ class FoodRepository @Inject constructor(
 
     suspend fun delete(id: Long) = dao.deleteById(id)
 
+    /** Zpět po smazání – záznam se vrátí i s původním id a časem. */
+    suspend fun restore(entry: FoodEntryEntity) {
+        dao.insert(entry)
+    }
+
     private fun startOfToday(): Long =
         LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 }

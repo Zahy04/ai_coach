@@ -1,8 +1,7 @@
 package cz.rzahr.aicoach.ui.food
 
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
-import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,52 +12,73 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Restaurant
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
+import androidx.compose.material3.SwipeToDismissBox
+import androidx.compose.material3.SwipeToDismissBoxValue
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.FoodEntryEntity
+import cz.rzahr.aicoach.ui.components.AppHeader
+import cz.rzahr.aicoach.ui.components.CircleIconButton
 import cz.rzahr.aicoach.ui.components.EmptyState
-import cz.rzahr.aicoach.ui.components.GlowProgressRing
-import cz.rzahr.aicoach.ui.components.bounceClick
-import cz.rzahr.aicoach.ui.theme.extendedColors
-import cz.rzahr.aicoach.util.formatDayHeader
+import cz.rzahr.aicoach.ui.components.Eyebrow
+import cz.rzahr.aicoach.ui.components.LinearMeter
+import cz.rzahr.aicoach.ui.components.SignalCard
+import cz.rzahr.aicoach.ui.theme.dataColors
+import cz.rzahr.aicoach.util.Locales
 import cz.rzahr.aicoach.util.formatTime
+import cz.rzahr.aicoach.util.grouped
 import cz.rzahr.aicoach.util.toLocalDate
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+import kotlinx.coroutines.launch
 
-@OptIn(ExperimentalMaterial3Api::class)
+data class FoodActions(
+    val onOpenMensa: () -> Unit = {},
+    val onAdd: (String, Int?, Double?, Double?, Double?, Int?) -> Unit = { _, _, _, _, _, _ -> },
+    val onUpdate: (Long, String, Int?, Double?, Double?, Double?, Int?) -> Unit = { _, _, _, _, _, _, _ -> },
+    val onDelete: (FoodEntryEntity) -> Unit = {}
+)
+
 @Composable
 fun FoodDiaryScreen(
     onOpenMensa: () -> Unit,
@@ -66,93 +86,100 @@ fun FoodDiaryScreen(
 ) {
     val entries by viewModel.entriesDesc.collectAsStateWithLifecycle()
     val calorieGoal by viewModel.calorieGoal.collectAsStateWithLifecycle()
-    var showAddDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    FoodDiaryContent(
+        entries = entries,
+        calorieGoal = calorieGoal,
+        snackbarHostState = snackbarHostState,
+        actions = FoodActions(
+            onOpenMensa = onOpenMensa,
+            onAdd = viewModel::add,
+            onUpdate = viewModel::update,
+            onDelete = { entry ->
+                viewModel.delete(entry.id)
+                scope.launch {
+                    snackbarHostState.currentSnackbarData?.dismiss()
+                    val result = snackbarHostState.showSnackbar(
+                        context.getString(R.string.food_deleted, entry.name),
+                        actionLabel = context.getString(R.string.undo),
+                        duration = SnackbarDuration.Long
+                    )
+                    if (result == SnackbarResult.ActionPerformed) viewModel.restore(entry)
+                }
+            }
+        )
+    )
+}
+
+@Composable
+fun FoodDiaryContent(
+    entries: List<FoodEntryEntity>,
+    calorieGoal: Int,
+    actions: FoodActions,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+) {
+    var showAddDialog by rememberSaveable { mutableStateOf(false) }
     var editEntry by remember { mutableStateOf<FoodEntryEntity?>(null) }
-    var pendingDelete by remember { mutableStateOf<FoodEntryEntity?>(null) }
-
-    // jídlo z jiného dne se nesmí mazat bez confirmace
-    val requestDelete: (FoodEntryEntity) -> Unit = { entry ->
-        if (entry.timestamp.toLocalDate() == java.time.LocalDate.now()) {
-            viewModel.delete(entry.id)
-        } else {
-            pendingDelete = entry
-        }
-    }
-
-    val grouped = remember(entries) {
-        entries.groupBy { it.timestamp.toLocalDate() }.toList()
-    }
+    val grouped = remember(entries) { entries.groupBy { it.timestamp.toLocalDate() }.toList() }
+    val todayTotal = grouped.firstOrNull { it.first == LocalDate.now() }?.second?.sumOf { it.calories ?: 0 } ?: 0
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.food_title)) },
+            AppHeader(
+                title = stringResource(R.string.food_title),
+                eyebrow = stringResource(R.string.food_today_total, todayTotal.grouped(), calorieGoal.grouped()),
                 actions = {
-                    IconButton(onClick = { showAddDialog = true }) {
-                        Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.food_add))
-                    }
+                    CircleIconButton(
+                        icon = Icons.Filled.Add,
+                        contentDescription = stringResource(R.string.food_add),
+                        onClick = { showAddDialog = true },
+                        container = MaterialTheme.colorScheme.inverseSurface,
+                        tint = MaterialTheme.colorScheme.inverseOnSurface
+                    )
                 }
             )
         }
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .padding(padding)
-                .fillMaxSize()
+                .fillMaxSize(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Card(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-                    .bounceClick(onClick = onOpenMensa)
-            ) {
-                Row(Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(
-                        Icons.Filled.Restaurant,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
+            item(key = "mensa") { MensaEntryCard(actions.onOpenMensa) }
+            if (entries.isEmpty()) {
+                item(key = "empty") {
+                    EmptyState(
+                        icon = Icons.Filled.Restaurant,
+                        title = stringResource(R.string.food_empty_title),
+                        description = stringResource(R.string.food_empty_desc)
                     )
-                    Spacer(Modifier.width(12.dp))
-                    Column(Modifier.weight(1f)) {
-                        Text(stringResource(R.string.mensa_entry_title), style = MaterialTheme.typography.titleMedium)
-                        Text(
-                            stringResource(R.string.mensa_entry_subtitle),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                    Text("›", style = MaterialTheme.typography.headlineSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-
-            Box(Modifier.weight(1f)) {
-                if (entries.isEmpty()) {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.Center
-                    ) {
-                        EmptyState(
-                            icon = Icons.Filled.Add,
-                            title = stringResource(R.string.food_empty_title),
-                            description = stringResource(R.string.food_empty_desc)
-                        )
-                    }
-                } else {
-                    LazyColumn(
-                        modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
-                    ) {
-                        grouped.forEach { (day, dayEntries) ->
-                            item(key = "day_$day") {
-                                DayCard(
-                                    dayEntries = dayEntries,
-                                    dayHeader = capitalize(day.formatDayHeader()),
-                                    // records label resolved inside DayCard
-                                    calorieGoal = calorieGoal,
-                                    onDeleteEntry = requestDelete,
-                                    onEditEntry = { editEntry = it }
+            grouped.forEach { (day, dayEntries) ->
+                item(key = "day_$day") {
+                    DayHeader(day = day, entries = dayEntries, calorieGoal = calorieGoal)
+                }
+                item(key = "list_$day") {
+                    SignalCard(contentPadding = 0.dp) {
+                        dayEntries.forEachIndexed { index, entry ->
+                            androidx.compose.runtime.key(entry.id) {
+                                SwipeToDelete(onDelete = { actions.onDelete(entry) }) {
+                                    FoodRow(entry = entry, onClick = { editEntry = entry })
+                                }
+                            }
+                            if (index < dayEntries.lastIndex) {
+                                Box(
+                                    Modifier
+                                        .padding(horizontal = 18.dp)
+                                        .fillMaxWidth()
+                                        .height(1.dp)
+                                        .background(MaterialTheme.colorScheme.outlineVariant)
                                 )
                             }
                         }
@@ -163,275 +190,244 @@ fun FoodDiaryScreen(
     }
 
     if (showAddDialog) {
-        AddFoodDialog(
+        FoodDialog(
+            title = stringResource(R.string.food_dialog_add_title),
+            initial = null,
             onDismiss = { showAddDialog = false },
-            onConfirm = { name, calories, protein, carbs, fat, grams ->
-                viewModel.add(name, calories, protein, carbs, fat, grams)
+            onSave = { name, calories, protein, carbs, fat, grams ->
+                actions.onAdd(name, calories, protein, carbs, fat, grams)
                 showAddDialog = false
             }
         )
     }
-
     editEntry?.let { entry ->
-        EditFoodDialog(
+        FoodDialog(
+            title = stringResource(R.string.food_dialog_edit_title),
             initial = entry,
             onDismiss = { editEntry = null },
             onSave = { name, calories, protein, carbs, fat, grams ->
-                viewModel.update(entry.id, name, calories, protein, carbs, fat, grams)
+                actions.onUpdate(entry.id, name, calories, protein, carbs, fat, grams)
                 editEntry = null
             },
             onDelete = {
                 editEntry = null
-                requestDelete(entry)
-            }
-        )
-    }
-
-    pendingDelete?.let { entry ->
-        val details = buildString {
-            append(entry.timestamp.formatTime())
-            entry.calories?.let { append(" · $it kcal") }
-        }
-        AlertDialog(
-            onDismissRequest = { pendingDelete = null },
-            title = { Text(stringResource(R.string.food_delete_otherday_title)) },
-            text = {
-                Text(
-                    stringResource(
-                        R.string.food_delete_otherday_text,
-                        entry.name,
-                        details,
-                        capitalize(entry.timestamp.formatDayHeader())
-                    )
-                )
-            },
-            confirmButton = {
-                TextButton(onClick = { viewModel.delete(entry.id); pendingDelete = null }) {
-                    Text(stringResource(R.string.delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { pendingDelete = null }) {
-                    Text(stringResource(R.string.cancel))
-                }
+                actions.onDelete(entry)
             }
         )
     }
 }
 
-private fun capitalize(text: String): String =
-    text.replaceFirstChar { it.uppercase() }
-
 @Composable
-private fun DayCard(
-    dayEntries: List<FoodEntryEntity>,
-    dayHeader: String,
-    calorieGoal: Int,
-    onDeleteEntry: (FoodEntryEntity) -> Unit,
-    onEditEntry: (FoodEntryEntity) -> Unit
-) {
-    val ext = extendedColors()
-    val dayCalories = dayEntries.sumOf { it.calories ?: 0 }
-
-    Card(Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(16.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(dayHeader, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        when (dayEntries.size) {
-                            1 -> stringResource(R.string.records_one, 1)
-                            in 2..4 -> stringResource(R.string.records_few, dayEntries.size)
-                            else -> stringResource(R.string.records_many, dayEntries.size)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-                GlowProgressRing(
-                    progress = if (calorieGoal > 0) dayCalories.toFloat() / calorieGoal else 0f,
-                    value = "$dayCalories",
-                    label = "/ $calorieGoal kcal",
-                    ringColor = ext.calories,
-                    ringSize = 60.dp,
-                    stroke = 6.dp,
-                    valueStyle = MaterialTheme.typography.titleSmall,
-                    labelStyle = MaterialTheme.typography.labelSmall
-                )
-            }
-            Spacer(Modifier.height(10.dp))
-            dayEntries.forEachIndexed { index, entry ->
-                FoodRow(
-                    entry = entry,
-                    onDelete = { onDeleteEntry(entry) },
-                    onEdit = { onEditEntry(entry) }
-                )
-                if (index < dayEntries.size - 1) {
-                    Box(
-                        Modifier
-                            .fillMaxWidth()
-                            .height(1.dp)
-                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                    )
-                }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-private fun FoodRow(
-    entry: FoodEntryEntity,
-    onDelete: () -> Unit,
-    onEdit: () -> Unit
-) {
-    val ext = extendedColors()
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .combinedClickable(onClick = onEdit, onLongClick = onDelete)
-            .padding(vertical = 8.dp)
+private fun MensaEntryCard(onClick: () -> Unit) {
+    SignalCard(
+        onClick = onClick,
+        container = MaterialTheme.colorScheme.secondaryContainer,
+        border = null,
+        contentPadding = 16.dp
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Column(Modifier.weight(1f)) {
-                Text(entry.name, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    buildString {
-                        append(entry.timestamp.formatTime())
-                        entry.grams?.let { append(" · $it g") }
-                        entry.calories?.let { append(" · $it kcal") }
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onDelete) {
-                Icon(
-                    Icons.Filled.Delete,
-                    contentDescription = stringResource(R.string.delete),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-        }
-
-        val macros = listOfNotNull(
-            entry.proteinG?.takeIf { it > 0 }?.let { Triple(ext.protein, it, stringResource(R.string.macro_protein_short, it.toInt())) },
-            entry.carbsG?.takeIf { it > 0 }?.let { Triple(ext.carbs, it, stringResource(R.string.macro_carbs_short, it.toInt())) },
-            entry.fatG?.takeIf { it > 0 }?.let { Triple(ext.fat, it, stringResource(R.string.macro_fat_short, it.toInt())) }
-        )
-        if (macros.isNotEmpty()) {
-            Spacer(Modifier.height(4.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                macros.forEach { (color, grams, label) ->
-                    MacroBar(
-                        fraction = (grams / macros.maxOf { it.second }).toFloat(),
-                        color = color,
-                        label = label,
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun MacroBar(
-    fraction: Float,
-    color: androidx.compose.ui.graphics.Color,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Column(modifier) {
-        Text(label, style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.Medium)
-        Spacer(Modifier.height(2.dp))
-        Box(
-            Modifier
-                .fillMaxWidth()
-                .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
-                .background(color.copy(alpha = 0.22f))
-        ) {
             Box(
                 Modifier
-                    .fillMaxWidth(fraction.coerceIn(0.08f, 1f))
-                    .height(4.dp)
-                    .clip(RoundedCornerShape(2.dp))
-                    .background(color)
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.secondary),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Filled.Restaurant, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondary)
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(R.string.mensa_entry_title),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                )
+                Text(
+                    stringResource(R.string.mensa_entry_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.75f)
+                )
+            }
+            Icon(
+                Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSecondaryContainer
             )
         }
     }
 }
 
 @Composable
-private fun EditFoodDialog(
-    initial: FoodEntryEntity,
+private fun DayHeader(day: LocalDate, entries: List<FoodEntryEntity>, calorieGoal: Int) {
+    val total = entries.sumOf { it.calories ?: 0 }
+    val locale = Locale.forLanguageTag(Locales.currentTag())
+    val label = when (day) {
+        LocalDate.now() -> stringResource(R.string.day_today)
+        LocalDate.now().minusDays(1) -> stringResource(R.string.day_yesterday)
+        else -> day.format(DateTimeFormatter.ofPattern("EEEE", locale))
+    }
+    Column(Modifier.padding(top = 10.dp, start = 4.dp, end = 4.dp)) {
+        Row(verticalAlignment = Alignment.Bottom) {
+            Column(Modifier.weight(1f)) {
+                Eyebrow(day.format(DateTimeFormatter.ofPattern("d. MMMM", locale)))
+                Text(label.replaceFirstChar { it.uppercase() }, style = MaterialTheme.typography.titleLarge)
+            }
+            Text(
+                stringResource(R.string.kcal_value_of, total.grouped(), calorieGoal.grouped()),
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        LinearMeter(
+            progress = if (calorieGoal > 0) total / calorieGoal.toFloat() else 0f,
+            color = dataColors().calories,
+            height = 4.dp
+        )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
+    val state = rememberSwipeToDismissBoxState(
+        confirmValueChange = { value ->
+            if (value == SwipeToDismissBoxValue.EndToStart) {
+                onDelete()
+                true
+            } else {
+                false
+            }
+        },
+        positionalThreshold = { distance -> distance * 0.4f }
+    )
+    SwipeToDismissBox(
+        state = state,
+        enableDismissFromStartToEnd = false,
+        backgroundContent = {
+            Row(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.errorContainer)
+                    .padding(horizontal = 22.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.End
+            ) {
+                Icon(
+                    Icons.Outlined.Delete,
+                    contentDescription = stringResource(R.string.delete),
+                    tint = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
+        }
+    ) {
+        Box(Modifier.background(MaterialTheme.colorScheme.surface)) { content() }
+    }
+}
+
+@Composable
+private fun FoodRow(entry: FoodEntryEntity, onClick: () -> Unit) {
+    val data = dataColors()
+    Row(
+        Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(horizontal = 18.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(Modifier.weight(1f)) {
+            Text(entry.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                buildList {
+                    add(entry.timestamp.formatTime())
+                    entry.grams?.let { add("$it g") }
+                    add(sourceLabel(entry.source))
+                }.joinToString(" · "),
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            val macros = listOfNotNull(
+                entry.proteinG?.takeIf { it >= 0.5 }?.let { Triple(data.protein, R.string.macro_protein_short, it) },
+                entry.carbsG?.takeIf { it >= 0.5 }?.let { Triple(data.carbs, R.string.macro_carbs_short, it) },
+                entry.fatG?.takeIf { it >= 0.5 }?.let { Triple(data.fat, R.string.macro_fat_short, it) }
+            )
+            if (macros.isNotEmpty()) {
+                Spacer(Modifier.height(6.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    macros.forEach { (color, label, grams) ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                Modifier
+                                    .size(7.dp)
+                                    .clip(CircleShape)
+                                    .background(color)
+                            )
+                            Spacer(Modifier.width(4.dp))
+                            Text(
+                                stringResource(label, kotlin.math.round(grams).toInt()),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(horizontalAlignment = Alignment.End) {
+            Text(
+                entry.calories?.grouped() ?: "—",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text("kcal", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+    }
+}
+
+@Composable
+private fun sourceLabel(source: String): String = when (source) {
+    FoodEntryEntity.SOURCE_API -> stringResource(R.string.ev_source_off)
+    FoodEntryEntity.SOURCE_MANUAL -> stringResource(R.string.food_source_manual)
+    else -> stringResource(R.string.food_source_coach)
+}
+
+/** Přidání i úprava jídla – desetinná čárka i tečka, prázdné pole = neznámá hodnota. */
+@Composable
+private fun FoodDialog(
+    title: String,
+    initial: FoodEntryEntity?,
     onDismiss: () -> Unit,
     onSave: (String, Int?, Double?, Double?, Double?, Int?) -> Unit,
-    onDelete: () -> Unit
+    onDelete: (() -> Unit)? = null
 ) {
-    var name by rememberSaveable { mutableStateOf(initial.name) }
-    var grams by rememberSaveable { mutableStateOf(initial.grams?.toString().orEmpty()) }
-    var calories by rememberSaveable { mutableStateOf(initial.calories?.toString().orEmpty()) }
-    var protein by rememberSaveable { mutableStateOf(initial.proteinG?.let { trimNum(it) }.orEmpty()) }
-    var carbs by rememberSaveable { mutableStateOf(initial.carbsG?.let { trimNum(it) }.orEmpty()) }
-    var fat by rememberSaveable { mutableStateOf(initial.fatG?.let { trimNum(it) }.orEmpty()) }
+    var name by rememberSaveable { mutableStateOf(initial?.name.orEmpty()) }
+    var grams by rememberSaveable { mutableStateOf(initial?.grams?.toString().orEmpty()) }
+    var calories by rememberSaveable { mutableStateOf(initial?.calories?.toString().orEmpty()) }
+    var protein by rememberSaveable { mutableStateOf(initial?.proteinG?.let(::trimNum).orEmpty()) }
+    var carbs by rememberSaveable { mutableStateOf(initial?.carbsG?.let(::trimNum).orEmpty()) }
+    var fat by rememberSaveable { mutableStateOf(initial?.fatG?.let(::trimNum).orEmpty()) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.food_dialog_edit_title)) },
+        title = { Text(title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
                     value = name,
                     onValueChange = { name = it },
                     label = { Text(stringResource(R.string.food_name_label)) },
-                    singleLine = true
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = grams,
-                        onValueChange = { grams = it },
-                        label = { Text(stringResource(R.string.food_grams_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = calories,
-                        onValueChange = { calories = it },
-                        label = { Text(stringResource(R.string.food_calories_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
+                    NumberField(grams, { grams = it }, stringResource(R.string.food_grams_label), Modifier.weight(1f), decimal = false)
+                    NumberField(calories, { calories = it }, stringResource(R.string.food_kcal_label), Modifier.weight(1f), decimal = false)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = protein,
-                        onValueChange = { protein = it },
-                        label = { Text(stringResource(R.string.macro_protein_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = carbs,
-                        onValueChange = { carbs = it },
-                        label = { Text(stringResource(R.string.macro_carbs_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = fat,
-                        onValueChange = { fat = it },
-                        label = { Text(stringResource(R.string.macro_fat_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
+                    NumberField(protein, { protein = it }, stringResource(R.string.macro_protein_label), Modifier.weight(1f))
+                    NumberField(carbs, { carbs = it }, stringResource(R.string.macro_carbs_label), Modifier.weight(1f))
+                    NumberField(fat, { fat = it }, stringResource(R.string.macro_fat_label), Modifier.weight(1f))
                 }
             }
         },
@@ -440,11 +436,11 @@ private fun EditFoodDialog(
                 onClick = {
                     onSave(
                         name.trim(),
-                        calories.toIntOrNull(),
-                        protein.replace(',', '.').toDoubleOrNull(),
-                        carbs.replace(',', '.').toDoubleOrNull(),
-                        fat.replace(',', '.').toDoubleOrNull(),
-                        grams.toIntOrNull()
+                        calories.parseIntOrNull(),
+                        protein.parseDoubleOrNull(),
+                        carbs.parseDoubleOrNull(),
+                        fat.parseDoubleOrNull(),
+                        grams.parseIntOrNull()
                     )
                 },
                 enabled = name.isNotBlank()
@@ -452,8 +448,10 @@ private fun EditFoodDialog(
         },
         dismissButton = {
             Row {
-                TextButton(onClick = onDelete) {
-                    Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
+                if (onDelete != null) {
+                    TextButton(onClick = onDelete) {
+                        Text(stringResource(R.string.delete), color = MaterialTheme.colorScheme.error)
+                    }
                 }
                 TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
             }
@@ -461,95 +459,28 @@ private fun EditFoodDialog(
     )
 }
 
-private fun trimNum(value: Double): String =
-    if (value == value.toLong().toDouble()) value.toLong().toString() else value.toString()
-
 @Composable
-private fun AddFoodDialog(
-    onDismiss: () -> Unit,
-    onConfirm: (String, Int?, Double?, Double?, Double?, Int?) -> Unit
+private fun NumberField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    label: String,
+    modifier: Modifier,
+    decimal: Boolean = true
 ) {
-    var name by rememberSaveable { mutableStateOf("") }
-    var grams by rememberSaveable { mutableStateOf("") }
-    var calories by rememberSaveable { mutableStateOf("") }
-    var protein by rememberSaveable { mutableStateOf("") }
-    var carbs by rememberSaveable { mutableStateOf("") }
-    var fat by rememberSaveable { mutableStateOf("") }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.food_dialog_add_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = { name = it },
-                    label = { Text(stringResource(R.string.food_name_label)) },
-                    singleLine = true
-                )
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = grams,
-                        onValueChange = { grams = it },
-                        label = { Text(stringResource(R.string.food_grams_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = calories,
-                        onValueChange = { calories = it },
-                        label = { Text(stringResource(R.string.food_calories_label)) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(
-                        value = protein,
-                        onValueChange = { protein = it },
-                        label = { Text(stringResource(R.string.macro_protein_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = carbs,
-                        onValueChange = { carbs = it },
-                        label = { Text(stringResource(R.string.macro_carbs_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                    OutlinedTextField(
-                        value = fat,
-                        onValueChange = { fat = it },
-                        label = { Text(stringResource(R.string.macro_fat_short, 0).substringBefore(' ')) },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                        modifier = Modifier.weight(1f)
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    onConfirm(
-                        name.trim(),
-                        calories.toIntOrNull(),
-                        protein.replace(',', '.').toDoubleOrNull(),
-                        carbs.replace(',', '.').toDoubleOrNull(),
-                        fat.replace(',', '.').toDoubleOrNull(),
-                        grams.toIntOrNull()
-                    )
-                },
-                enabled = name.isNotBlank()
-            ) { Text(stringResource(R.string.save)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
-        }
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = if (decimal) KeyboardType.Decimal else KeyboardType.Number),
+        modifier = modifier
     )
 }
+
+/** „150,5" i „150.5"; desetinné číslo do celočíselného pole se zaokrouhlí místo zahození. */
+private fun String.parseDoubleOrNull(): Double? = trim().replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 }
+
+private fun String.parseIntOrNull(): Int? = parseDoubleOrNull()?.let { kotlin.math.round(it).toInt() }
+
+private fun trimNum(value: Double): String =
+    if (value % 1.0 == 0.0) value.toInt().toString() else String.format(Locale.US, "%.1f", value)

@@ -181,8 +181,13 @@ class DashboardViewModel @Inject constructor(
         }
     }
 
-    fun deleteFact(id: Long) {
-        viewModelScope.launch { factRepository.delete(id) }
+    fun deleteFact(fact: FactEntity) {
+        viewModelScope.launch { factRepository.delete(fact.id) }
+    }
+
+    /** Zpět ve snackbaru – fakt se vrátí i s původním id. */
+    fun restoreFact(fact: FactEntity) {
+        viewModelScope.launch { factRepository.restore(fact) }
     }
 
     companion object {
