@@ -2,10 +2,13 @@ package cz.rzahr.aicoach.data.repo
 
 import android.content.Context
 import android.util.Base64
+import androidx.room.withTransaction
 import cz.rzahr.aicoach.R
+import cz.rzahr.aicoach.data.db.AppDatabase
 import cz.rzahr.aicoach.data.db.dao.MensaMealDao
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.mensa.MensaEstimator
+import cz.rzahr.aicoach.mensa.MensaEstimatorCore
 import cz.rzahr.aicoach.mensa.MensaScraper
 import cz.rzahr.aicoach.mensa.ParsedMeal
 import cz.rzahr.aicoach.mensa.VisionImage
@@ -14,7 +17,8 @@ import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 data class MensaRefreshResult(
     val ok: Boolean,
@@ -27,8 +31,16 @@ class MensaRepository @Inject constructor(
     private val scraper: MensaScraper,
     private val estimator: MensaEstimator,
     private val dao: MensaMealDao,
+    private val db: AppDatabase,
     private val settingsRepository: SettingsRepository
 ) {
+
+    /**
+     * Refresh spouští auto-refresher (každé onCreate aktivity) i obrazovka Menza.
+     * Souběžné běhy by si navzájem mazaly a vkládaly řádky (duplicitní jídla,
+     * odhady zapsané k už smazaným id) – proto jen jeden najednou.
+     */
+    private val refreshMutex = Mutex()
 
     fun observeMeals(systemId: Int, epochDay: Long): Flow<List<MensaMealEntity>> =
         dao.observeMeals(systemId, epochDay)
@@ -42,7 +54,9 @@ class MensaRepository @Inject constructor(
      * přetahuje i během dne, dokud dnešní jídla nemají žádnou fotku.
      * Jídla s fotkou se odhadují přes vision, zbytek textově.
      */
-    suspend fun refresh(force: Boolean): MensaRefreshResult {
+    suspend fun refresh(force: Boolean): MensaRefreshResult = refreshMutex.withLock { refreshLocked(force) }
+
+    private suspend fun refreshLocked(force: Boolean): MensaRefreshResult {
         var anySuccess = false
         var scrapeError = false
         var estimateError: String? = null
@@ -110,9 +124,9 @@ class MensaRepository @Inject constructor(
             val visionMeals = dao.getPhotoNeedingVision(systemId).take(MAX_VISION_MEALS)
             if (visionMeals.isNotEmpty() && estimateError == null) {
                 try {
-                    val images = downloadPhotos(visionMeals)
-                    if (images.isNotEmpty()) {
-                        val withImages = visionMeals.filterIndexed { index, _ -> images.containsKey(index) }
+                    val downloaded = downloadPhotos(visionMeals)
+                    if (downloaded.isNotEmpty()) {
+                        val (withImages, images) = MensaEstimatorCore.pairWithImages(visionMeals, downloaded)
                         val estimates = estimator.estimateVision(
                             systemId, withImages, images, patient = force
                         )
@@ -202,25 +216,27 @@ class MensaRepository @Inject constructor(
         val existing = dao.getBySystemDay(systemId, date.toEpochDay())
         val byJidlo = existing.filter { it.jidloId != null }.associateBy { it.jidloId }
         val byName = existing.associateBy { it.name }
-        dao.deleteBySystemDay(systemId, date.toEpochDay())
-        dao.insertAll(rows.map { row ->
-            val prev = row.jidloId?.let { byJidlo[it] } ?: byName[row.name]
-            val entity = row.toEntity()
-            if (prev == null) {
-                entity
-            } else {
-                entity.copy(
-                    kcalMin = prev.kcalMin,
-                    kcalMax = prev.kcalMax,
-                    proteinG = prev.proteinG,
-                    carbsG = prev.carbsG,
-                    fatG = prev.fatG,
-                    rating = prev.rating,
-                    // nová fotka → vision znovu; stejná fotka → ponechat stav
-                    visionEstimated = prev.visionEstimated && prev.photoUrl == entity.photoUrl
-                )
-            }
-        })
+        db.withTransaction {
+            dao.deleteBySystemDay(systemId, date.toEpochDay())
+            dao.insertAll(rows.map { row ->
+                val prev = row.jidloId?.let { byJidlo[it] } ?: byName[row.name]
+                val entity = row.toEntity()
+                if (prev == null) {
+                    entity
+                } else {
+                    entity.copy(
+                        kcalMin = prev.kcalMin,
+                        kcalMax = prev.kcalMax,
+                        proteinG = prev.proteinG,
+                        carbsG = prev.carbsG,
+                        fatG = prev.fatG,
+                        rating = prev.rating,
+                        // nová fotka → vision znovu; stejná fotka → ponechat stav
+                        visionEstimated = prev.visionEstimated && prev.photoUrl == entity.photoUrl
+                    )
+                }
+            })
+        }
     }
 
     /**
@@ -248,10 +264,12 @@ class MensaRepository @Inject constructor(
                 val known = preservedToday.map { it.name }.toSet()
                 keyRows = keyRows.filter { it.date.toEpochDay() != todayEpoch || it.name !in known }
             }
-            dao.deleteBySystemWeek(systemId, key)
-            if (keyRows.isNotEmpty()) dao.insertAll(keyRows.map { it.toEntity() })
-            if (key == todayWeekKey && dailyTodayOk && preservedToday.isNotEmpty()) {
-                dao.insertAll(preservedToday.map { it.copy(id = 0) })
+            db.withTransaction {
+                dao.deleteBySystemWeek(systemId, key)
+                if (keyRows.isNotEmpty()) dao.insertAll(keyRows.map { it.toEntity() })
+                if (key == todayWeekKey && dailyTodayOk && preservedToday.isNotEmpty()) {
+                    dao.insertAll(preservedToday.map { it.copy(id = 0) })
+                }
             }
         }
     }

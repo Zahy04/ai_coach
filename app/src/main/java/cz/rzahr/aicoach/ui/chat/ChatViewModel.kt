@@ -88,8 +88,8 @@ class ChatViewModel @Inject constructor(
             _modelsLoading.value = true
             try {
                 val fresh = llmRouter.fetchUnifiedModels()
-                _allModels.value = fresh
-                settingsRepository.pruneModelOverrides(fresh.toSet())
+                if (fresh.names.isNotEmpty()) _allModels.value = fresh.names
+                if (fresh.complete) settingsRepository.pruneModelOverrides(fresh.names.toSet())
             } catch (_: Exception) {
                 // tiché selhání — lze zadat ručně v Nastavení
             } finally {
@@ -124,7 +124,7 @@ class ChatViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
 
-    private val _toolEvents = MutableSharedFlow<String>(extraBufferCapacity = 8)
+    private val _toolEvents = MutableSharedFlow<String>(extraBufferCapacity = 32)
     val toolEvents: SharedFlow<String> = _toolEvents
 
     private val _pendingImagePath = MutableStateFlow<String?>(null)
@@ -132,11 +132,16 @@ class ChatViewModel @Inject constructor(
 
     private var generationJob: Job? = null
 
+    private val _attachError = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    /** Fotku se nepodařilo načíst (poškozený soubor, nepodporovaný formát). */
+    val attachError: SharedFlow<Unit> = _attachError
+
     fun attachImage(uri: Uri) {
         if (_sending.value) return
         viewModelScope.launch {
             runCatching { chatRepository.importChatImage(uri) }
-                .onSuccess { _pendingImagePath.value = it }
+                .onSuccess(::replacePendingImage)
+                .onFailure { _attachError.tryEmit(Unit) }
         }
     }
 
@@ -144,7 +149,17 @@ class ChatViewModel @Inject constructor(
         if (_sending.value || !file.exists()) return
         viewModelScope.launch {
             runCatching { chatRepository.importChatImageFile(file) }
-                .onSuccess { _pendingImagePath.value = it }
+                .onSuccess(::replacePendingImage)
+                .onFailure { _attachError.tryEmit(Unit) }
+        }
+    }
+
+    /** Nahrazená (neodeslaná) fotka by jinak zůstala na disku navždy. */
+    private fun replacePendingImage(path: String) {
+        val previous = _pendingImagePath.value
+        _pendingImagePath.value = path
+        if (previous != null && previous != path) {
+            viewModelScope.launch { chatRepository.deleteImageFile(previous) }
         }
     }
 
@@ -163,10 +178,7 @@ class ChatViewModel @Inject constructor(
         val imagePath = _pendingImagePath.value
         if ((message.isEmpty() && imagePath == null) || _sending.value) return
         _pendingImagePath.value = null
-        viewModelScope.launch {
-            chatRepository.addUserMessage(message.ifBlank { "(foto)" }, imagePath)
-            startGeneration()
-        }
+        launchTurn { chatRepository.addUserMessage(message.ifBlank { "(foto)" }, imagePath) }
     }
 
     fun stopGeneration() {
@@ -175,20 +187,19 @@ class ChatViewModel @Inject constructor(
 
     fun retryGeneration() {
         if (_sending.value) return
-        startGeneration()
+        launchTurn()
     }
 
     fun regenerateLastResponse() {
         if (_sending.value) return
-        viewModelScope.launch {
+        launchTurn {
             chatRepository.lastModelMessage()?.let { chatRepository.deleteById(it.id) }
-            startGeneration()
         }
     }
 
     fun sendWeeklySummary() {
         if (_sending.value) return
-        viewModelScope.launch {
+        launchTurn {
             val now = System.currentTimeMillis()
             val weekAgo = now - 7L * 24 * 60 * 60 * 1000
             val foods = foodRepository.since(weekAgo)
@@ -255,7 +266,6 @@ class ChatViewModel @Inject constructor(
             }
 
             chatRepository.addUserMessage(message)
-            startGeneration()
         }
     }
 
@@ -264,33 +274,44 @@ class ChatViewModel @Inject constructor(
     }
 
     fun clearChat() {
+        if (_sending.value) return
+        // clear() maže i složku s fotkami, tedy i neodeslanou přílohu.
+        _pendingImagePath.value = null
         viewModelScope.launch { chatRepository.clear() }
     }
 
-    private fun startGeneration() {
-        generationJob = viewModelScope.launch { generateResponse() }
+    /**
+     * Příznak odesílání se nastaví synchronně ještě před první suspendací – dřív se
+     * nastavoval až po zápisu do DB a rychlé dvojí ťuknutí spustilo dvě generování
+     * (a nástroje zapsaly data dvakrát).
+     */
+    private fun launchTurn(prepare: suspend () -> Unit = {}) {
+        _sending.value = true
+        _error.value = null
+        generationJob = viewModelScope.launch {
+            try {
+                prepare()
+                generateResponse()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Neznámá chyba."
+            } finally {
+                _streamingText.value = null
+                _sending.value = false
+            }
+        }
     }
 
     private suspend fun generateResponse() {
-        _sending.value = true
-        _error.value = null
         _streamingText.value = ""
-        try {
-            val history = chatRepository.historyContents(HISTORY_LIMIT)
-            val systemPrompt = promptBuilder.build()
-            val result = llmRouter.chat(systemPrompt, history) { delta ->
-                _streamingText.value = (_streamingText.value ?: "") + delta
-            }
-            chatRepository.addModelMessage(result.reply)
-            result.toolEvents.forEach { _toolEvents.tryEmit(it) }
-        } catch (e: CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            _error.value = e.message ?: "Neznámá chyba."
-        } finally {
-            _streamingText.value = null
-            _sending.value = false
+        val history = chatRepository.historyContents(HISTORY_LIMIT)
+        val systemPrompt = promptBuilder.build()
+        val result = llmRouter.chat(systemPrompt, history) { delta ->
+            _streamingText.value = (_streamingText.value ?: "") + delta
         }
+        chatRepository.addModelMessage(result.reply)
+        result.toolEvents.forEach { _toolEvents.tryEmit(it) }
     }
 
     companion object {

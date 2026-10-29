@@ -34,5 +34,5 @@ interface FactDao {
     suspend fun update(id: Long, category: String, content: String, updatedAt: Long)
 
     @Query("DELETE FROM facts WHERE id = :id")
-    suspend fun deleteById(id: Long)
+    suspend fun deleteById(id: Long): Int
 }

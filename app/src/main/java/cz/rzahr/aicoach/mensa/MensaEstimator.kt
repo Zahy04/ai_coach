@@ -202,42 +202,7 @@ class MensaEstimator @Inject constructor(
                 body.bytes()
             }
             if (raw.size > MAX_PHOTO_BYTES) return@withContext null
-            downscaleToJpeg(raw)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun downscaleToJpeg(bytes: ByteArray, maxDim: Int = 1024, quality: Int = 80): ByteArray? {
-        return try {
-            val bounds = android.graphics.BitmapFactory.Options().apply { inJustDecodeBounds = true }
-            android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
-            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
-            var sample = 1
-            while (bounds.outWidth / sample > maxDim || bounds.outHeight / sample > maxDim) sample *= 2
-            val opts = android.graphics.BitmapFactory.Options().apply { inSampleSize = sample }
-            val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size, opts)
-                ?: return null
-            val scale = minOf(
-                maxDim / bitmap.width.toFloat(),
-                maxDim / bitmap.height.toFloat(),
-                1f
-            )
-            val final = if (scale < 1f) {
-                android.graphics.Bitmap.createScaledBitmap(
-                    bitmap,
-                    (bitmap.width * scale).toInt().coerceAtLeast(1),
-                    (bitmap.height * scale).toInt().coerceAtLeast(1),
-                    true
-                )
-            } else {
-                bitmap
-            }
-            val out = java.io.ByteArrayOutputStream()
-            final.compress(android.graphics.Bitmap.CompressFormat.JPEG, quality, out)
-            if (final !== bitmap) bitmap.recycle()
-            final.recycle()
-            out.toByteArray().takeIf { it.isNotEmpty() }
+            cz.rzahr.aicoach.util.ImageDownscale.toJpeg(raw, maxDim = 1024, quality = 80)
         } catch (_: Exception) {
             null
         }
@@ -337,6 +302,22 @@ object MensaEstimatorCore {
         return parts
     }
 
+    /**
+     * Ponechá jen jídla, k nimž se fotku podařilo stáhnout, a fotky přečísluje na
+     * indexy výsledného seznamu. Bez přečíslování dostalo po jednom nepovedeném
+     * stažení jídlo C fotku jídla B.
+     */
+    fun pairWithImages(
+        meals: List<MensaMealEntity>,
+        imagesByMealIndex: Map<Int, VisionImage>
+    ): Pair<List<MensaMealEntity>, Map<Int, VisionImage>> {
+        val kept = meals.indices.filter { it in imagesByMealIndex }
+        val images = kept.withIndex().associate { (newIndex, oldIndex) ->
+            newIndex to imagesByMealIndex.getValue(oldIndex)
+        }
+        return kept.map { meals[it] } to images
+    }
+
     /** Vrací vnitřní text odpovědi (JSON s odhady); null znamená „nevratno, jdi dál". */
     suspend fun generateWithRetry(
         http: OkHttpClient,
@@ -394,9 +375,9 @@ object MensaEstimatorCore {
                     .orEmpty()
                 if (inner.isBlank()) {
                     val reason = envelope?.candidates?.firstOrNull()?.finishReason
-                        ?.let { " (důvod: $it)" }
+                        ?.let { " " + String.format(msgs.reasonFmt, it).trim() }
                         .orEmpty()
-                    throw MensaEstimationException(msgs.emptyReply + String.format(msgs.reasonFmt, reason))
+                    throw MensaEstimationException(msgs.emptyReply + reason)
                 }
                 return inner
             }

@@ -34,8 +34,9 @@ class MensaAutoRefresher @Inject constructor(
                 // Fotky přibývají až kolem 10:30–10:45 — i když už se dnes stahovalo,
                 // zkusíme je dotáhnout, dokud dnešní jídla nemají žádnou fotku.
                 if (fetchedToday && !mensaRepository.needsPhotoRefresh()) return@launch
-                runCatching { mensaRepository.refresh(force = false) }
-                settingsRepository.setMensaLastFetchDay(today)
+                // Den si jako stažený označí sám refresh – jen když se něco opravdu povedlo,
+                // takže start bez sítě se při dalším otevření zkusí znovu.
+                mensaRepository.refresh(force = false)
             } catch (_: Exception) {
                 // tichý pokus — zkusí se znovu při příštím otevření
             }
