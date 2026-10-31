@@ -34,7 +34,8 @@ object AppModule {
                 AppDatabase.MIGRATION_4_5,
                 AppDatabase.MIGRATION_5_6,
                 AppDatabase.MIGRATION_6_7,
-                AppDatabase.MIGRATION_7_8
+                AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9
             )
             .build()
 
@@ -64,6 +65,9 @@ object AppModule {
 
     @Provides
     fun providePoseFolderDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.PoseFolderDao = db.poseFolderDao()
+
+    @Provides
+    fun provideScannedProductDao(db: AppDatabase): cz.rzahr.aicoach.data.db.dao.ScannedProductDao = db.scannedProductDao()
 
     @Provides
     @Singleton
