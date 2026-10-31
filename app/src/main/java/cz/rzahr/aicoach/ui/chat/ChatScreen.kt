@@ -8,12 +8,15 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,30 +27,30 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
-import androidx.compose.material.icons.filled.AddPhotoAlternate
-import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.ExpandMore
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PhotoCamera
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.material.icons.filled.PhotoLibrary
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.ErrorOutline
+import androidx.compose.material.icons.outlined.Key
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilledIconButton
-import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -60,142 +63,127 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringArrayResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
-import androidx.compose.ui.res.stringResource
 import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.ChatMessageEntity
-import cz.rzahr.aicoach.ui.theme.TextPrimaryDark
+import cz.rzahr.aicoach.ui.components.AppHeader
+import cz.rzahr.aicoach.ui.components.CircleIconButton
+import cz.rzahr.aicoach.ui.components.ConfirmDialog
+import cz.rzahr.aicoach.ui.components.Eyebrow
 import cz.rzahr.aicoach.util.formatTime
 import cz.rzahr.aicoach.util.toLocalDate
-import kotlinx.coroutines.launch
-import androidx.core.content.FileProvider
 import java.io.File
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 
-private sealed interface ChatRow {
-    val key: String
+/** Stav chatu pro bezstavový [ChatContent]. */
+data class ChatState(
+    val messages: List<ChatMessageEntity>,
+    val sending: Boolean,
+    val streamingText: String?,
+    val hasApiKey: Boolean,
+    val error: String?,
+    val pendingImagePath: String?,
+    val currentModel: String,
+    val availableModels: List<String>,
+    val modelsLoading: Boolean
+)
 
-    data class Separator(val key2: String, val fallback: String, override val key: String) : ChatRow
-    data class Message(val message: ChatMessageEntity) : ChatRow {
-        override val key: String = "msg_${message.id}"
-    }
-}
+data class ChatActions(
+    val onOpenSettings: () -> Unit = {},
+    val onSend: (String) -> Unit = {},
+    val onStop: () -> Unit = {},
+    val onRetry: () -> Unit = {},
+    val onDismissError: () -> Unit = {},
+    val onRegenerate: () -> Unit = {},
+    val onClearChat: () -> Unit = {},
+    val onSelectModel: (String) -> Unit = {},
+    val onLoadModels: () -> Unit = {},
+    val onPickImage: () -> Unit = {},
+    val onTakePhoto: () -> Unit = {},
+    val onDictate: () -> Unit = {},
+    val onRemovePendingImage: () -> Unit = {},
+    val onCopy: (String) -> Unit = {}
+)
 
-private const val DAY_KEY_TODAY = "today"
-private const val DAY_KEY_YESTERDAY = "yesterday"
-
-private fun dayKeyFor(date: LocalDate): String = when (date) {
-    LocalDate.now() -> DAY_KEY_TODAY
-    LocalDate.now().minusDays(1) -> DAY_KEY_YESTERDAY
-    else -> date.format(DateTimeFormatter.ofPattern("d. M. yyyy"))
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChatScreen(
     onOpenSettings: () -> Unit,
     weeklySummaryRequested: Boolean = false,
     viewModel: ChatViewModel = hiltViewModel()
 ) {
-    val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val sending by viewModel.sending.collectAsStateWithLifecycle()
-    val streamingText by viewModel.streamingText.collectAsStateWithLifecycle()
-    val hasApiKey by viewModel.hasApiKey.collectAsStateWithLifecycle()
-    val error by viewModel.error.collectAsStateWithLifecycle()
-    val pendingImagePath by viewModel.pendingImagePath.collectAsStateWithLifecycle()
-    val currentModel by viewModel.model.collectAsStateWithLifecycle()
-    val availableModels by viewModel.availableModels.collectAsStateWithLifecycle()
-    val modelsLoading by viewModel.modelsLoading.collectAsStateWithLifecycle()
-    var input by rememberSaveable { mutableStateOf("") }
-    var confirmClear by remember { mutableStateOf(false) }
-    val listState = rememberLazyListState()
-    val snackbarHostState = remember { SnackbarHostState() }
+    val state = ChatState(
+        messages = viewModel.messages.collectAsStateWithLifecycle().value,
+        sending = viewModel.sending.collectAsStateWithLifecycle().value,
+        streamingText = viewModel.streamingText.collectAsStateWithLifecycle().value,
+        hasApiKey = viewModel.hasApiKey.collectAsStateWithLifecycle().value,
+        error = viewModel.error.collectAsStateWithLifecycle().value,
+        pendingImagePath = viewModel.pendingImagePath.collectAsStateWithLifecycle().value,
+        currentModel = viewModel.model.collectAsStateWithLifecycle().value,
+        availableModels = viewModel.availableModels.collectAsStateWithLifecycle().value,
+        modelsLoading = viewModel.modelsLoading.collectAsStateWithLifecycle().value
+    )
+    val context = LocalContext.current
     val clipboard = LocalClipboardManager.current
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    var input by rememberSaveable { mutableStateOf("") }
 
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri ->
         uri?.let { viewModel.attachImage(it) }
     }
-
-    val context = androidx.compose.ui.platform.LocalContext.current
-    var pendingCaptureFile by remember { mutableStateOf<File?>(null) }
+    // Cesta musí přežít zánik aktivity (otočení ve foťáku, úklid procesu),
+    // jinak se vyfocená fotka tiše zahodila.
+    var pendingCapturePath by rememberSaveable { mutableStateOf<String?>(null) }
     val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicture()) { success ->
-        val file = pendingCaptureFile
-        pendingCaptureFile = null
-        if (success && file != null && file.exists()) {
+        val file = pendingCapturePath?.let(::File)
+        pendingCapturePath = null
+        if (success && file != null && file.exists() && file.length() > 0) {
             viewModel.attachCapturedImage(file)
+        } else {
+            file?.delete()
         }
     }
-
-    val snackbarScope = rememberCoroutineScope()
     val speechLauncher = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
-        val spoken = result.data?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)?.firstOrNull()
-        if (!spoken.isNullOrBlank()) {
-            input = (input + " " + spoken).trim()
-        }
-    }
-    fun startVoiceInput() {
-        val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
-            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL, android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
-            putExtra(android.speech.RecognizerIntent.EXTRA_LANGUAGE, "cs-CZ")
-        }
-        try {
-            speechLauncher.launch(intent)
-        } catch (_: android.content.ActivityNotFoundException) {
-            snackbarScope.launch { snackbarHostState.showSnackbar(context.getString(R.string.chat_voice_unavailable)) }
-        }
+        val spoken = result.data
+            ?.getStringArrayListExtra(android.speech.RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+        if (!spoken.isNullOrBlank()) input = (input + " " + spoken).trim()
     }
 
-    val rows = remember(messages) {
-        buildList {
-            var lastDate: LocalDate? = null
-            messages.forEach { message ->
-                val date = message.timestamp.toLocalDate()
-                if (date != lastDate) {
-                    add(ChatRow.Separator(dayKeyFor(date), date.format(DateTimeFormatter.ofPattern("d. M. yyyy")), "sep_$date"))
-                    lastDate = date
-                }
-                add(ChatRow.Message(message))
-            }
-        }
-    }
-
-    val lastModelId = messages.lastOrNull()?.takeIf { it.role == ChatMessageEntity.ROLE_MODEL }?.id
-    val showStreamingBubble = !streamingText.isNullOrEmpty()
-    val showTypingIndicator = sending && streamingText.isNullOrEmpty()
-    val itemCount = rows.size +
-        (if (showStreamingBubble) 1 else 0) +
-        (if (showTypingIndicator) 1 else 0)
-
-    LaunchedEffect(rows.size, streamingText?.length?.div(80)) {
-        if (itemCount > 0) {
-            listState.animateScrollToItem(itemCount - 1)
-        }
-    }
     LaunchedEffect(Unit) {
         viewModel.toolEvents.collect { snackbarHostState.showSnackbar(it) }
     }
-
+    LaunchedEffect(Unit) {
+        viewModel.attachError.collect {
+            snackbarHostState.showSnackbar(context.getString(R.string.chat_attach_failed))
+        }
+    }
     var summaryHandled by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(weeklySummaryRequested) {
         if (weeklySummaryRequested && !summaryHandled) {
@@ -203,308 +191,425 @@ fun ChatScreen(
             viewModel.sendWeeklySummary()
         }
     }
-
-    LaunchedEffect(hasApiKey) {
-        if (hasApiKey && availableModels.isEmpty()) {
-            viewModel.loadModels()
-        }
+    LaunchedEffect(state.hasApiKey) {
+        if (state.hasApiKey && state.availableModels.isEmpty()) viewModel.loadModels()
     }
 
-    var modelMenuExpanded by remember { mutableStateOf(false) }
+    ChatContent(
+        state = state,
+        input = input,
+        onInputChange = { input = it },
+        snackbarHostState = snackbarHostState,
+        actions = ChatActions(
+            onOpenSettings = onOpenSettings,
+            onSend = { text ->
+                viewModel.send(text)
+                input = ""
+            },
+            onStop = viewModel::stopGeneration,
+            onRetry = viewModel::retryGeneration,
+            onDismissError = viewModel::clearError,
+            onRegenerate = viewModel::regenerateLastResponse,
+            onClearChat = viewModel::clearChat,
+            onSelectModel = viewModel::selectModel,
+            onLoadModels = viewModel::loadModels,
+            onPickImage = {
+                pickImage.launch(
+                    androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                )
+            },
+            onTakePhoto = {
+                val file = viewModel.newCaptureFile()
+                pendingCapturePath = file.absolutePath
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                takePicture.launch(uri)
+            },
+            onDictate = {
+                val intent = android.content.Intent(android.speech.RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+                    putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE_MODEL,
+                        android.speech.RecognizerIntent.LANGUAGE_MODEL_FREE_FORM
+                    )
+                    putExtra(
+                        android.speech.RecognizerIntent.EXTRA_LANGUAGE,
+                        if (cz.rzahr.aicoach.util.Locales.isCzech()) "cs-CZ" else "en-US"
+                    )
+                }
+                try {
+                    speechLauncher.launch(intent)
+                } catch (_: android.content.ActivityNotFoundException) {
+                    scope.launch { snackbarHostState.showSnackbar(context.getString(R.string.chat_voice_unavailable)) }
+                }
+            },
+            onRemovePendingImage = viewModel::clearPendingImage,
+            onCopy = { clipboard.setText(AnnotatedString(it)) }
+        )
+    )
+}
+
+private sealed interface ChatRow {
+    val key: String
+
+    data class Separator(val date: LocalDate) : ChatRow {
+        override val key: String = "sep_$date"
+    }
+
+    data class Message(val message: ChatMessageEntity) : ChatRow {
+        override val key: String = "msg_${message.id}"
+    }
+}
+
+@Composable
+fun ChatContent(
+    state: ChatState,
+    input: String,
+    onInputChange: (String) -> Unit,
+    actions: ChatActions,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+) {
+    var confirmClear by remember { mutableStateOf(false) }
+    val listState = rememberLazyListState()
+
+    val rows = remember(state.messages) {
+        buildList<ChatRow> {
+            var lastDate: LocalDate? = null
+            state.messages.forEach { message ->
+                val date = message.timestamp.toLocalDate()
+                if (date != lastDate) {
+                    add(ChatRow.Separator(date))
+                    lastDate = date
+                }
+                add(ChatRow.Message(message))
+            }
+        }
+    }
+    val lastModelId = state.messages.lastOrNull()?.takeIf { it.role == ChatMessageEntity.ROLE_MODEL }?.id
+    val showStreaming = !state.streamingText.isNullOrEmpty()
+    val showTyping = state.sending && state.streamingText.isNullOrEmpty()
+    val itemCount = rows.size + (if (showStreaming) 1 else 0) + (if (showTyping) 1 else 0)
+
+    LaunchedEffect(rows.size, state.streamingText?.length?.div(80), showTyping) {
+        if (itemCount > 0) listState.animateScrollToItem(itemCount - 1)
+    }
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Text(stringResource(R.string.chat_title))
-                        Text(
-                            currentModel.removePrefix("gemini-"),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                },
+            AppHeader(
+                title = stringResource(R.string.tab_coach),
                 actions = {
-                    Box {
-                        IconButton(onClick = { modelMenuExpanded = true }) {
-                            Icon(Icons.Filled.ArrowDropDown, contentDescription = stringResource(R.string.chat_change_model))
-                        }
-                        DropdownMenu(
-                            expanded = modelMenuExpanded,
-                            onDismissRequest = { modelMenuExpanded = false }
-                        ) {
-                            if (modelsLoading) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.chat_models_loading)) },
-                                    onClick = {},
-                                    enabled = false
-                                )
-                            } else if (availableModels.isEmpty()) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.chat_models_failed)) },
-                                    onClick = { viewModel.loadModels() }
-                                )
-                            } else {
-                                availableModels.forEach { candidate ->
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                candidate,
-                                                color = if (candidate == currentModel) {
-                                                    MaterialTheme.colorScheme.primary
-                                                } else {
-                                                    MaterialTheme.colorScheme.onSurface
-                                                },
-                                                fontWeight = if (candidate == currentModel) FontWeight.Bold else null
-                                            )
-                                        },
-                                        trailingIcon = {
-                                            if (candidate == currentModel) {
-                                                Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-                                            }
-                                        },
-                                        onClick = {
-                                            viewModel.selectModel(candidate)
-                                            modelMenuExpanded = false
-                                        }
-                                    )
-                                }
-                            }
-                        }
-                    }
-                    if (messages.isNotEmpty()) {
-                        IconButton(onClick = { confirmClear = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = stringResource(R.string.chat_delete_history))
-                        }
+                    ModelPicker(
+                        currentModel = state.currentModel,
+                        models = state.availableModels,
+                        loading = state.modelsLoading,
+                        onSelect = actions.onSelectModel,
+                        onRetry = actions.onLoadModels
+                    )
+                    if (state.messages.isNotEmpty()) {
+                        Spacer(Modifier.width(8.dp))
+                        CircleIconButton(
+                            icon = Icons.Outlined.DeleteSweep,
+                            contentDescription = stringResource(R.string.chat_delete_history),
+                            onClick = { confirmClear = true },
+                            enabled = !state.sending
+                        )
                     }
                 }
             )
-        },
-        snackbarHost = { SnackbarHost(snackbarHostState) }
+        }
     ) { padding ->
         Column(
-            modifier = Modifier
+            Modifier
                 .padding(padding)
                 .fillMaxSize()
                 .imePadding()
         ) {
-            if (!hasApiKey) {
-                ApiKeyMissingBanner(
-                    isOpenRouter = '/' in currentModel,
-                    onOpenSettings = onOpenSettings
+            if (!state.hasApiKey) {
+                Banner(
+                    icon = Icons.Outlined.Key,
+                    title = stringResource(
+                        if ('/' in state.currentModel) R.string.chat_missing_key_title_or else R.string.chat_missing_key_title
+                    ),
+                    body = stringResource(
+                        if ('/' in state.currentModel) R.string.chat_missing_key_body_or else R.string.chat_missing_key_body
+                    ),
+                    container = MaterialTheme.colorScheme.primaryContainer,
+                    content = MaterialTheme.colorScheme.onPrimaryContainer,
+                    primaryAction = stringResource(R.string.chat_open_settings) to actions.onOpenSettings
                 )
             }
-            error?.let { message ->
-                ErrorBanner(
-                    message = message,
-                    onRetry = viewModel::retryGeneration,
-                    onDismiss = viewModel::clearError
+            state.error?.let { message ->
+                Banner(
+                    icon = Icons.Outlined.ErrorOutline,
+                    title = message,
+                    body = null,
+                    container = MaterialTheme.colorScheme.errorContainer,
+                    content = MaterialTheme.colorScheme.onErrorContainer,
+                    primaryAction = stringResource(R.string.retry) to actions.onRetry,
+                    secondaryAction = stringResource(R.string.close) to actions.onDismissError
                 )
             }
 
-            if (rows.isEmpty() && !showStreamingBubble && !showTypingIndicator) {
-                EmptyChatHint(modifier = Modifier.weight(1f))
+            if (rows.isEmpty() && !showStreaming && !showTyping) {
+                EmptyChat(
+                    enabled = state.hasApiKey,
+                    onSuggestion = onInputChange,
+                    modifier = Modifier.weight(1f)
+                )
             } else {
                 LazyColumn(
                     state = listState,
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxWidth(),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
                     items(rows, key = { it.key }) { row ->
                         when (row) {
-                            is ChatRow.Separator -> DaySeparator(row.key2, row.fallback)
-                            is ChatRow.Message -> MessageBubble(
+                            is ChatRow.Separator -> DaySeparator(row.date)
+                            is ChatRow.Message -> MessageItem(
                                 message = row.message,
-                                canRegenerate = row.message.id == lastModelId && !sending,
-                                onCopy = { text -> clipboard.setText(AnnotatedString(text)) },
-                                onRegenerate = viewModel::regenerateLastResponse,
+                                canRegenerate = row.message.id == lastModelId && !state.sending,
+                                onCopy = actions.onCopy,
+                                onRegenerate = actions.onRegenerate,
                                 modifier = Modifier.animateItem()
                             )
                         }
                     }
-                    if (showStreamingBubble) {
+                    if (showStreaming) {
                         item(key = "streaming") {
-                            StreamingBubble(streamingText.orEmpty())
+                            CoachMessage(
+                                text = state.streamingText.orEmpty(),
+                                timestamp = null,
+                                streaming = true
+                            )
                         }
                     }
-                    if (showTypingIndicator) {
-                        item(key = "typing") {
-                            Row(verticalAlignment = Alignment.Bottom) {
-                                CoachAvatar(Modifier.padding(end = 8.dp, bottom = 4.dp))
-                                TypingIndicator()
-                            }
-                        }
+                    if (showTyping) {
+                        item(key = "typing") { TypingIndicator() }
                     }
                 }
             }
 
-            pendingImagePath?.let { path ->
-                PendingImageChip(
-                    path = path,
-                    onRemove = viewModel::clearPendingImage
-                )
+            state.pendingImagePath?.let { path ->
+                PendingImage(path = path, onRemove = actions.onRemovePendingImage)
             }
-
-            InputRow(
+            Composer(
                 input = input,
-                onInputChange = { input = it },
-                sending = sending,
-                enabled = hasApiKey,
-                onAttachClick = { pickImage.launch(arrayOf("image/*")) },
-                onCameraClick = {
-                    val file = viewModel.newCaptureFile()
-                    pendingCaptureFile = file
-                    val uri = FileProvider.getUriForFile(
-                        context,
-                        "${context.packageName}.fileprovider",
-                        file
-                    )
-                    takePicture.launch(uri)
-                },
-                onMicClick = { startVoiceInput() },
-                onStopClick = viewModel::stopGeneration,
-                onSend = {
-                    viewModel.send(input)
-                    input = ""
-                }
+                onInputChange = onInputChange,
+                sending = state.sending,
+                enabled = state.hasApiKey,
+                hasPendingImage = state.pendingImagePath != null,
+                actions = actions
             )
         }
     }
 
     if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text(stringResource(R.string.chat_clear_confirm_title)) },
-            text = { Text(stringResource(R.string.chat_clear_confirm_text)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    confirmClear = false
-                    viewModel.clearChat()
-                }) { Text(stringResource(R.string.delete)) }
+        ConfirmDialog(
+            title = stringResource(R.string.chat_clear_confirm_title),
+            text = stringResource(R.string.chat_clear_confirm_text),
+            confirmLabel = stringResource(R.string.delete),
+            onConfirm = {
+                confirmClear = false
+                actions.onClearChat()
             },
-            dismissButton = {
-                TextButton(onClick = { confirmClear = false }) { Text(stringResource(R.string.cancel)) }
-            }
+            onDismiss = { confirmClear = false }
         )
     }
 }
 
 @Composable
-private fun DaySeparator(key: String, fallback: String) {
-    val label = when (key) {
-        DAY_KEY_TODAY -> stringResource(R.string.day_today)
-        DAY_KEY_YESTERDAY -> stringResource(R.string.day_yesterday)
-        else -> fallback
-    }
-    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier
-                .clip(RoundedCornerShape(50))
-                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f))
-                .padding(horizontal = 12.dp, vertical = 4.dp)
-        )
-    }
-}
-
-@Composable
-private fun CoachAvatar(modifier: Modifier = Modifier) {
-    Box(
-        modifier
-            .size(28.dp)
-            .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primary),
-        contentAlignment = Alignment.Center
-    ) {
-        Icon(
-            Icons.Filled.FitnessCenter,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onPrimary,
-            modifier = Modifier.size(15.dp)
-        )
-    }
-}
-
-@Composable
-private fun ApiKeyMissingBanner(isOpenRouter: Boolean, onOpenSettings: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
-    ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                stringResource(
-                    if (isOpenRouter) R.string.chat_missing_key_title_or else R.string.chat_missing_key_title
-                ),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(Modifier.size(4.dp))
-            Text(
-                stringResource(
-                    if (isOpenRouter) R.string.chat_missing_key_body_or else R.string.chat_missing_key_body
-                ),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Spacer(Modifier.size(8.dp))
-            OutlinedButton(onClick = onOpenSettings) { Text(stringResource(R.string.chat_open_settings)) }
-        }
-    }
-}
-
-@Composable
-private fun ErrorBanner(
-    message: String,
-    onRetry: () -> Unit,
-    onDismiss: () -> Unit
+private fun ModelPicker(
+    currentModel: String,
+    models: List<String>,
+    loading: Boolean,
+    onSelect: (String) -> Unit,
+    onRetry: () -> Unit
 ) {
-    Card(
+    var expanded by remember { mutableStateOf(false) }
+    Box {
+        Surface(
+            onClick = { expanded = true },
+            shape = CircleShape,
+            color = MaterialTheme.colorScheme.surface,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+        ) {
+            Row(
+                Modifier
+                    .height(44.dp)
+                    .padding(start = 14.dp, end = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.secondary)
+                )
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    shortModelName(currentModel),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.widthIn(max = 132.dp)
+                )
+                Icon(
+                    Icons.Filled.ExpandMore,
+                    contentDescription = stringResource(R.string.chat_change_model),
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            when {
+                loading -> DropdownMenuItem(
+                    text = { Text(stringResource(R.string.chat_models_loading)) },
+                    onClick = {},
+                    enabled = false
+                )
+                models.isEmpty() -> DropdownMenuItem(
+                    text = { Text(stringResource(R.string.chat_models_failed)) },
+                    onClick = onRetry
+                )
+                else -> models.forEach { candidate ->
+                    val selected = candidate == currentModel
+                    DropdownMenuItem(
+                        text = {
+                            Text(
+                                candidate,
+                                color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        },
+                        trailingIcon = {
+                            if (selected) Icon(Icons.Filled.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                        },
+                        onClick = {
+                            onSelect(candidate)
+                            expanded = false
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** "gemini-3.6-flash-lite" → "3.6 flash lite", "qwen/qwen3.8-27b:free" → "qwen3.8-27b". */
+internal fun shortModelName(model: String): String =
+    model.substringAfterLast('/')
+        .substringBefore(':')
+        .removePrefix("gemini-")
+        .replace('-', ' ')
+        .ifBlank { model }
+
+@Composable
+private fun Banner(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    body: String?,
+    container: Color,
+    content: Color,
+    primaryAction: Pair<String, () -> Unit>,
+    secondaryAction: Pair<String, () -> Unit>? = null
+) {
+    Surface(
+        color = container,
+        shape = MaterialTheme.shapes.large,
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer)
+            .padding(horizontal = 16.dp, vertical = 6.dp)
     ) {
-        Column(Modifier.padding(16.dp)) {
-            Text(
-                message,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onErrorContainer
-            )
-            Spacer(Modifier.size(8.dp))
-            Row {
-                OutlinedButton(onClick = onRetry) { Text(stringResource(R.string.retry)) }
-                Spacer(Modifier.width(8.dp))
-                TextButton(onClick = onDismiss) { Text(stringResource(R.string.close)) }
+        Row(Modifier.padding(16.dp), verticalAlignment = Alignment.Top) {
+            Icon(icon, contentDescription = null, tint = content, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(title, style = MaterialTheme.typography.titleSmall, color = content)
+                if (body != null) {
+                    Spacer(Modifier.height(4.dp))
+                    Text(body, style = MaterialTheme.typography.bodySmall, color = content.copy(alpha = 0.85f))
+                }
+                Spacer(Modifier.height(8.dp))
+                Row {
+                    OutlinedButton(
+                        onClick = primaryAction.second,
+                        border = BorderStroke(1.dp, content.copy(alpha = 0.4f))
+                    ) { Text(primaryAction.first, color = content) }
+                    if (secondaryAction != null) {
+                        Spacer(Modifier.width(4.dp))
+                        TextButton(onClick = secondaryAction.second) { Text(secondaryAction.first, color = content) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun EmptyChat(enabled: Boolean, onSuggestion: (String) -> Unit, modifier: Modifier) {
+    Column(
+        modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 24.dp, vertical = 24.dp),
+        verticalArrangement = Arrangement.Center
+    ) {
+        Eyebrow(stringResource(R.string.chat_empty_eyebrow), color = MaterialTheme.colorScheme.primary)
+        Spacer(Modifier.height(8.dp))
+        Text(stringResource(R.string.chat_empty_title), style = MaterialTheme.typography.headlineLarge)
+        Spacer(Modifier.height(10.dp))
+        Text(
+            stringResource(R.string.chat_empty_body),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.height(20.dp))
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            stringArrayResource(R.array.chat_suggestions).forEach { suggestion ->
+                Surface(
+                    onClick = { onSuggestion(suggestion) },
+                    enabled = enabled,
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surface,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
+                ) {
+                    Text(
+                        suggestion,
+                        style = MaterialTheme.typography.labelLarge,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun EmptyChatHint(modifier: Modifier = Modifier) {
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
-        Text(
-            stringResource(R.string.chat_empty_hint),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(32.dp)
-        )
+private fun DaySeparator(date: LocalDate) {
+    val label = when (date) {
+        LocalDate.now() -> stringResource(R.string.day_today)
+        LocalDate.now().minusDays(1) -> stringResource(R.string.day_yesterday)
+        else -> date.format(DateTimeFormatter.ofPattern("d. M. yyyy"))
     }
+    Eyebrow(
+        label,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
+        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
+    )
 }
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun MessageBubble(
+private fun MessageItem(
     message: ChatMessageEntity,
     canRegenerate: Boolean,
     onCopy: (String) -> Unit,
@@ -513,109 +618,115 @@ private fun MessageBubble(
 ) {
     var menuExpanded by remember { mutableStateOf(false) }
     val isUser = message.role == ChatMessageEntity.ROLE_USER
-
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        horizontalAlignment = if (isUser) Alignment.End else Alignment.Start
+    Box(
+        modifier
+            .fillMaxWidth()
+            .combinedClickable(onClick = {}, onLongClick = { menuExpanded = true })
     ) {
-        Box {
-            if (isUser) {
-                Surface(
-                    shape = RoundedCornerShape(20.dp, 6.dp, 20.dp, 20.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.combinedClickable(
-                        onClick = {},
-                        onLongClick = { menuExpanded = true }
-                    )
-                ) {
-                    BubbleContent(message)
+        if (isUser) {
+            UserMessage(message, Modifier.align(Alignment.CenterEnd))
+        } else {
+            CoachMessage(text = message.content, timestamp = message.timestamp, streaming = false)
+        }
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.chat_copy)) },
+                onClick = {
+                    menuExpanded = false
+                    onCopy(message.content)
                 }
-            } else {
-                Row(verticalAlignment = Alignment.Bottom) {
-                    CoachAvatar(Modifier.padding(end = 8.dp, bottom = 4.dp))
-                    Surface(
-                        shape = RoundedCornerShape(6.dp, 20.dp, 20.dp, 20.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        modifier = Modifier.combinedClickable(
-                            onClick = {},
-                            onLongClick = { menuExpanded = true }
-                        )
-                    ) {
-                        BubbleContent(message, forceTextColor = TextPrimaryDark)
-                    }
-                }
-            }
-            DropdownMenu(
-                expanded = menuExpanded,
-                onDismissRequest = { menuExpanded = false }
-            ) {
+            )
+            if (!isUser && canRegenerate) {
                 DropdownMenuItem(
-                    text = { Text(stringResource(R.string.chat_copy)) },
+                    text = { Text(stringResource(R.string.chat_regenerate)) },
                     onClick = {
                         menuExpanded = false
-                        onCopy(message.content)
+                        onRegenerate()
                     }
                 )
-                if (!isUser && canRegenerate) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.chat_regenerate)) },
-                        onClick = {
-                            menuExpanded = false
-                            onRegenerate()
-                        }
-                    )
-                }
             }
         }
     }
 }
 
 @Composable
-private fun BubbleContent(message: ChatMessageEntity, forceTextColor: Color? = null) {
-    Column(Modifier.padding(horizontal = 14.dp, vertical = 10.dp)) {
-        message.imagePath?.let { path ->
-            AsyncImage(
-                model = File(path),
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
-                modifier = Modifier
-                    .padding(bottom = 8.dp)
-                    .fillMaxWidth(0.75f)
-                    .heightIn(max = 240.dp)
-                    .clip(RoundedCornerShape(12.dp))
-            )
+private fun UserMessage(message: ChatMessageEntity, modifier: Modifier) {
+    Column(modifier.widthIn(max = 320.dp), horizontalAlignment = Alignment.End) {
+        Surface(
+            color = MaterialTheme.colorScheme.inverseSurface,
+            contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+            shape = RoundedCornerShape(topStart = 22.dp, topEnd = 22.dp, bottomStart = 22.dp, bottomEnd = 6.dp)
+        ) {
+            Column(Modifier.padding(6.dp)) {
+                message.imagePath?.let { path ->
+                    AsyncImage(
+                        model = File(path),
+                        contentDescription = stringResource(R.string.chat_attached_photo),
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(max = 220.dp)
+                            .clip(RoundedCornerShape(18.dp))
+                    )
+                }
+                val hideText = message.imagePath != null && message.content == PHOTO_ONLY_PLACEHOLDER
+                if (!hideText) {
+                    Text(
+                        message.content,
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
         }
-        if (message.role == ChatMessageEntity.ROLE_USER) {
-            Text(message.content, style = MaterialTheme.typography.bodyLarge)
-        } else {
-            MarkdownText(message.content, color = forceTextColor ?: Color.Unspecified)
-        }
-        val timeColor = forceTextColor?.copy(alpha = 0.6f) ?: MaterialTheme.colorScheme.onSurfaceVariant
         Text(
             message.timestamp.formatTime(),
             style = MaterialTheme.typography.labelSmall,
-            color = timeColor,
-            modifier = Modifier.padding(top = 2.dp)
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, end = 4.dp)
         )
     }
 }
 
 @Composable
-private fun StreamingBubble(text: String) {
-    Row(verticalAlignment = Alignment.Bottom) {
-        CoachAvatar(Modifier.padding(end = 8.dp, bottom = 4.dp))
-        Surface(
-            shape = RoundedCornerShape(6.dp, 20.dp, 20.dp, 20.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant
-        ) {
-            Row(
-                Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                verticalAlignment = Alignment.Bottom
-            ) {
-                MarkdownText(text, color = TextPrimaryDark)
-                BlinkingCaret()
+private fun CoachMessage(text: String, timestamp: Long?, streaming: Boolean) {
+    Column(Modifier.fillMaxWidth().padding(end = 24.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            CoachMark()
+            Spacer(Modifier.width(8.dp))
+            Eyebrow(stringResource(R.string.tab_coach), color = MaterialTheme.colorScheme.onSurface)
+            if (timestamp != null) {
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    timestamp.formatTime(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
+        Spacer(Modifier.height(6.dp))
+        Row(verticalAlignment = Alignment.Bottom) {
+            MarkdownText(text, modifier = Modifier.weight(1f, fill = false), color = MaterialTheme.colorScheme.onSurface)
+            if (streaming) BlinkingCaret()
+        }
+    }
+}
+
+@Composable
+private fun CoachMark() {
+    Box(
+        Modifier
+            .size(22.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.primary),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.onPrimary)
+        )
     }
 }
 
@@ -630,74 +741,61 @@ private fun BlinkingCaret() {
     )
     Box(
         Modifier
-            .padding(start = 2.dp, bottom = 2.dp)
-            .size(width = 3.dp, height = 16.dp)
-            .background(
-                MaterialTheme.colorScheme.primary.copy(alpha = alpha),
-                RoundedCornerShape(1.dp)
-            )
+            .padding(start = 3.dp, bottom = 4.dp)
+            .size(width = 8.dp, height = 16.dp)
+            .alpha(alpha)
+            .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(2.dp))
     )
 }
 
 @Composable
 private fun TypingIndicator() {
-    Surface(
-        shape = RoundedCornerShape(6.dp, 20.dp, 20.dp, 20.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant
-    ) {
-        Row(
-            Modifier.padding(horizontal = 14.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            repeat(3) { index ->
-                TypingDot(delayMillis = index * 200)
-                if (index < 2) Spacer(Modifier.width(5.dp))
-            }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        CoachMark()
+        Spacer(Modifier.width(10.dp))
+        repeat(3) { index ->
+            val transition = rememberInfiniteTransition(label = "dot$index")
+            val alpha by transition.animateFloat(
+                initialValue = 0.2f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(450),
+                    repeatMode = RepeatMode.Reverse,
+                    initialStartOffset = StartOffset(index * 150)
+                ),
+                label = "dotAlpha$index"
+            )
+            Box(
+                Modifier
+                    .padding(end = 5.dp)
+                    .size(7.dp)
+                    .alpha(alpha)
+                    .background(MaterialTheme.colorScheme.onSurface, CircleShape)
+            )
         }
     }
 }
 
 @Composable
-private fun TypingDot(delayMillis: Int) {
-    val transition = rememberInfiniteTransition(label = "dot")
-    val bounce by transition.animateFloat(
-        initialValue = 0.25f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(450),
-            repeatMode = RepeatMode.Reverse,
-            initialStartOffset = StartOffset(delayMillis)
-        ),
-        label = "dotAlpha"
-    )
-    Box(
-        Modifier
-            .size(9.dp)
-            .background(
-                MaterialTheme.colorScheme.primary.copy(alpha = bounce),
-                CircleShape
-            )
-    )
-}
-
-@Composable
-private fun PendingImageChip(path: String, onRemove: () -> Unit) {
+private fun PendingImage(path: String, onRemove: () -> Unit) {
     Row(
-        Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         AsyncImage(
             model = File(path),
-            contentDescription = null,
+            contentDescription = stringResource(R.string.chat_pending_photo),
             contentScale = ContentScale.Crop,
             modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(12.dp))
+                .size(52.dp)
+                .clip(RoundedCornerShape(14.dp))
         )
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         Text(
             stringResource(R.string.chat_pending_photo),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.labelLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.weight(1f)
         )
@@ -708,48 +806,50 @@ private fun PendingImageChip(path: String, onRemove: () -> Unit) {
 }
 
 @Composable
-private fun InputRow(
+private fun Composer(
     input: String,
     onInputChange: (String) -> Unit,
     sending: Boolean,
     enabled: Boolean,
-    onAttachClick: () -> Unit,
-    onCameraClick: () -> Unit,
-    onMicClick: () -> Unit,
-    onStopClick: () -> Unit,
-    onSend: () -> Unit
+    hasPendingImage: Boolean,
+    actions: ChatActions
 ) {
+    var attachMenu by remember { mutableStateOf(false) }
+    val canSend = enabled && !sending && (input.isNotBlank() || hasPendingImage)
     Surface(
-        shape = RoundedCornerShape(30.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
+        shape = RoundedCornerShape(28.dp),
+        color = MaterialTheme.colorScheme.surface,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 12.dp, vertical = 8.dp)
+            .padding(start = 12.dp, end = 12.dp, top = 6.dp, bottom = 10.dp)
     ) {
         Row(
-            Modifier.padding(start = 4.dp, end = 6.dp, top = 4.dp, bottom = 4.dp),
+            Modifier.padding(6.dp),
             verticalAlignment = Alignment.Bottom
         ) {
-            IconButton(onClick = onMicClick, enabled = enabled && !sending) {
-                Icon(
-                    Icons.Filled.Mic,
-                    contentDescription = stringResource(R.string.chat_dictate),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onCameraClick, enabled = enabled && !sending) {
-                Icon(
-                    Icons.Filled.PhotoCamera,
-                    contentDescription = stringResource(R.string.chat_take_photo),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            IconButton(onClick = onAttachClick, enabled = enabled && !sending) {
-                Icon(
-                    Icons.Filled.AddPhotoAlternate,
-                    contentDescription = stringResource(R.string.chat_attach_photo),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant
-                )
+            Box {
+                IconButton(onClick = { attachMenu = true }, enabled = enabled && !sending) {
+                    Icon(Icons.Filled.Add, contentDescription = stringResource(R.string.chat_attach_photo))
+                }
+                DropdownMenu(expanded = attachMenu, onDismissRequest = { attachMenu = false }) {
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.chat_take_photo)) },
+                        leadingIcon = { Icon(Icons.Filled.PhotoCamera, contentDescription = null) },
+                        onClick = {
+                            attachMenu = false
+                            actions.onTakePhoto()
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = { Text(stringResource(R.string.chat_attach_photo)) },
+                        leadingIcon = { Icon(Icons.Filled.PhotoLibrary, contentDescription = null) },
+                        onClick = {
+                            attachMenu = false
+                            actions.onPickImage()
+                        }
+                    )
+                }
             }
             TextField(
                 value = input,
@@ -763,37 +863,61 @@ private fun InputRow(
                 },
                 maxLines = 5,
                 enabled = enabled && !sending,
+                textStyle = MaterialTheme.typography.bodyLarge,
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = Color.Transparent,
                     unfocusedContainerColor = Color.Transparent,
                     disabledContainerColor = Color.Transparent,
                     focusedIndicatorColor = Color.Transparent,
                     unfocusedIndicatorColor = Color.Transparent,
-                    disabledIndicatorColor = Color.Transparent,
-                    cursorColor = MaterialTheme.colorScheme.primary,
-                    focusedTextColor = TextPrimaryDark,
-                    unfocusedTextColor = TextPrimaryDark
+                    disabledIndicatorColor = Color.Transparent
                 )
             )
-            FilledIconButton(
-                onClick = if (sending) onStopClick else onSend,
-                enabled = if (sending) true else enabled && input.isNotBlank(),
-                shape = CircleShape,
-                colors = IconButtonDefaults.filledIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
-                ),
-                modifier = Modifier.padding(bottom = 4.dp)
-            ) {
-                Icon(
-                    if (sending) Icons.Filled.Close else Icons.AutoMirrored.Filled.Send,
-                    contentDescription = if (sending) {
-                        stringResource(R.string.chat_stop_generation)
-                    } else {
-                        stringResource(R.string.chat_send)
-                    }
+            when {
+                sending -> RoundAction(
+                    icon = Icons.Filled.Stop,
+                    contentDescription = stringResource(R.string.chat_stop_generation),
+                    onClick = actions.onStop,
+                    container = MaterialTheme.colorScheme.inverseSurface,
+                    tint = MaterialTheme.colorScheme.inverseOnSurface
+                )
+                input.isBlank() && !hasPendingImage -> IconButton(onClick = actions.onDictate, enabled = enabled) {
+                    Icon(Icons.Filled.Mic, contentDescription = stringResource(R.string.chat_dictate))
+                }
+                else -> RoundAction(
+                    icon = Icons.AutoMirrored.Filled.Send,
+                    contentDescription = stringResource(R.string.chat_send),
+                    onClick = { actions.onSend(input) },
+                    enabled = canSend,
+                    container = MaterialTheme.colorScheme.primary,
+                    tint = MaterialTheme.colorScheme.onPrimary
                 )
             }
         }
     }
 }
+
+@Composable
+private fun RoundAction(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    container: Color,
+    tint: Color,
+    enabled: Boolean = true
+) {
+    Surface(
+        onClick = onClick,
+        enabled = enabled,
+        shape = CircleShape,
+        color = if (enabled) container else container.copy(alpha = 0.4f),
+        modifier = Modifier.size(48.dp)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = contentDescription, tint = tint, modifier = Modifier.size(20.dp))
+        }
+    }
+}
+
+/** Text, který ViewModel uloží za zprávu jen s fotkou – v bublině se neukazuje. */
+private const val PHOTO_ONLY_PLACEHOLDER = "(foto)"

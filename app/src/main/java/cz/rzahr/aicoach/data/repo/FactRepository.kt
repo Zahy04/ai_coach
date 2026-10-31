@@ -25,9 +25,10 @@ class FactRepository @Inject constructor(
         val trimmedContent = content.trim()
         val now = System.currentTimeMillis()
 
-        factId?.let { id ->
-            dao.update(id, normalizedCategory, trimmedContent, now)
-            return UpsertResult(id = id, created = false)
+        // Neexistující id (model si ho vymyslel) nesmí fakt tiše zahodit – pak se vloží nový.
+        if (factId != null && dao.byId(factId) != null) {
+            dao.update(factId, normalizedCategory, trimmedContent, now)
+            return UpsertResult(id = factId, created = false)
         }
 
         val existing = dao.findByCategoryAndContent(normalizedCategory, trimmedContent.lowercase())
@@ -52,7 +53,13 @@ class FactRepository @Inject constructor(
         dao.update(id, fact.category, content.trim(), System.currentTimeMillis())
     }
 
-    suspend fun delete(id: Long) = dao.deleteById(id)
+    /** @return true, když fakt existoval a byl smazán. */
+    suspend fun delete(id: Long): Boolean = dao.deleteById(id) > 0
+
+    /** Vrátí smazaný fakt (Zpět ve snackbaru) i s původním id. */
+    suspend fun restore(fact: FactEntity) {
+        dao.insert(fact)
+    }
 
     private fun normalizeCategory(category: String): String {
         val upper = category.uppercase().trim()

@@ -34,6 +34,13 @@ android {
     buildFeatures {
         compose = true
     }
+    sourceSets {
+        // Aplikace nemá žádný nativní kód. Lokální složka src/main/jniLibs (pokusy
+        // s llama.cpp, 235 MB) se jinak automaticky balí do každého APK.
+        getByName("main") {
+            jniLibs.setSrcDirs(emptyList<String>())
+        }
+    }
 }
 
 kotlin {
@@ -75,6 +82,11 @@ dependencies {
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
     implementation(libs.jsoup)
+
+    implementation(libs.camera.camera2)
+    implementation(libs.camera.lifecycle)
+    implementation(libs.camera.view)
+    implementation(libs.mlkit.barcode.scanning)
 
     testImplementation(libs.junit)
     testImplementation(libs.mockwebserver)

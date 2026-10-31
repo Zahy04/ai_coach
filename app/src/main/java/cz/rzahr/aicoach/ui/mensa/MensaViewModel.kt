@@ -2,6 +2,7 @@ package cz.rzahr.aicoach.ui.mensa
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.data.db.entity.MensaMealEntity
 import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.MensaRepository
@@ -46,8 +47,10 @@ class MensaViewModel @Inject constructor(
     val isWeekend: Boolean = LocalDate.now().dayOfWeek == DayOfWeek.SATURDAY ||
         LocalDate.now().dayOfWeek == DayOfWeek.SUNDAY
 
-    private val _loggedMealIds = MutableStateFlow<Set<Long>>(emptySet())
-    val loggedMealIds: StateFlow<Set<Long>> = _loggedMealIds.asStateFlow()
+    // Klíč podle menzy, dne a názvu – id řádků se při každém obnovení mění,
+    // takže zapsané jídlo se dřív po refreshi znovu ukazovalo jako nezapsané.
+    private val _loggedMealKeys = MutableStateFlow<Set<String>>(emptySet())
+    val loggedMealKeys: StateFlow<Set<String>> = _loggedMealKeys.asStateFlow()
 
     private val _events = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val events: SharedFlow<String> = _events
@@ -75,11 +78,11 @@ class MensaViewModel @Inject constructor(
             try {
                 val result = mensaRepository.refresh(force)
                 if (!result.ok) {
-                    _error.value = "Nepodařilo se načíst jídelníček ze stránek SUZ. Zkus obnovit později."
+                    _error.value = context.getString(R.string.mensa_scrape_failed)
                 }
                 _estimateError.value = result.estimateError
             } catch (e: Exception) {
-                _error.value = e.message ?: "Nepodařilo se načíst menu."
+                _error.value = e.message ?: context.getString(R.string.mensa_scrape_failed)
             } finally {
                 _loading.value = false
             }
@@ -87,6 +90,10 @@ class MensaViewModel @Inject constructor(
     }
 
     fun logToDiary(meal: MensaMealEntity) {
+        val key = mealKey(meal)
+        if (key in _loggedMealKeys.value) return
+        // Označit hned (synchronně), ať dvojí ťuknutí nezapíše jídlo dvakrát.
+        _loggedMealKeys.value = _loggedMealKeys.value + key
         viewModelScope.launch {
             foodRepository.add(
                 name = buildString {
@@ -103,8 +110,11 @@ class MensaViewModel @Inject constructor(
                 grams = meal.grams,
                 source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_MANUAL
             )
-            _loggedMealIds.value = _loggedMealIds.value + meal.id
-            _events.tryEmit(context.getString(cz.rzahr.aicoach.R.string.mensa_logged_snackbar, meal.name))
+            _events.tryEmit(context.getString(R.string.mensa_logged_snackbar, meal.name))
         }
+    }
+
+    companion object {
+        fun mealKey(meal: MensaMealEntity): String = "${meal.systemId}|${meal.epochDay}|${meal.name}"
     }
 }

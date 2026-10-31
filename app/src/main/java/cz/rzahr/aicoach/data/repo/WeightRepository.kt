@@ -23,4 +23,9 @@ class WeightRepository @Inject constructor(
         dao.update(id, weightKg, note?.takeIf { it.isNotBlank() })
 
     suspend fun delete(id: Long) = dao.deleteById(id)
+
+    /** Zpět po smazání – záznam se vrátí i s původním id a časem. */
+    suspend fun restore(entry: WeightEntryEntity) {
+        dao.insert(entry)
+    }
 }

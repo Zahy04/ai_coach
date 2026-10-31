@@ -72,7 +72,8 @@ object ToolTextFallback {
         }
         return out
             // Zbylé osiřelé uvozovky/závorky po odstranění – jen jemný úklid.
-            .replace(Regex("[ \\t]+"), " ")
+            // Odsazení na začátku řádku (vnořené seznamy) se nesmí slít.
+            .replace(Regex("(?<=\\S)[ \\t]{2,}"), " ")
             .replace(Regex("\\n{3,}"), "\n\n")
             .replace(Regex("(?m)^[ \\t]*,[ \\t]*$"), "")
             .trim()
@@ -161,7 +162,7 @@ object ToolTextFallback {
         var depthParen = 0
         var depthBracket = 0
         var depthBrace = 0
-        for (c in text) {
+        for ((i, c) in text.withIndex()) {
             if (escape) {
                 cur.append(c)
                 escape = false
@@ -205,6 +206,10 @@ object ToolTextFallback {
                         depthBrace--
                         cur.append(c)
                     }
+                    // Desetinná čárka (78,5): číslice,číslice bez mezery není oddělovač argumentů.
+                    c == ',' && delimiter == ',' &&
+                        text.getOrNull(i - 1)?.isDigit() == true &&
+                        text.getOrNull(i + 1)?.isDigit() == true -> cur.append('.')
                     c == delimiter && depthParen == 0 && depthBracket == 0 && depthBrace == 0 -> {
                         out.add(cur.toString())
                         cur.clear()
@@ -295,9 +300,9 @@ object ToolTextFallback {
                 val okCat = cat in setOf("PREFERENCE", "DISLIKE", "DIET", "GOAL", "HABIT", "HEALTH", "OTHER")
                 okCat && !str("content").isNullOrBlank()
             }
-            ToolSpecs.DELETE_FACT -> {
-                args["fact_id"]?.let { (it as? JsonPrimitive)?.content }?.toLongOrNull() != null
-            }
+            // Mazání z textu nikdy: stačí, aby model volání jen citoval či vysvětloval,
+            // a uživatel by nevratně přišel o data.
+            ToolSpecs.DELETE_FACT -> false
             else -> false
         }
     }

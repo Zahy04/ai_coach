@@ -69,6 +69,20 @@ object TrendMath {
         return FitResult(0.0, b, c)
     }
 
+    /**
+     * Pozice měření na ose X (0..1) podle času – stejná normalizace jako u [fitQuadratic],
+     * takže body, průměr i trendová křivka leží na jedné ose. Když mají všechna měření
+     * stejný čas, rozprostře je rovnoměrně.
+     */
+    fun timeFractions(timestamps: List<Long>): List<Double> {
+        if (timestamps.isEmpty()) return emptyList()
+        if (timestamps.size == 1) return listOf(0.0)
+        val min = timestamps.min()
+        val range = (timestamps.max() - min).toDouble()
+        if (range <= 0.0) return timestamps.indices.map { it.toDouble() / (timestamps.size - 1) }
+        return timestamps.map { (it - min) / range }
+    }
+
     fun movingAverage(values: List<Double>, window: Int): List<Double> {
         if (window <= 1 || values.isEmpty()) return values
         return values.indices.map { i ->

@@ -35,4 +35,8 @@ class WeightViewModel @Inject constructor(
     fun delete(id: Long) {
         viewModelScope.launch { weightRepository.delete(id) }
     }
+
+    fun restore(entry: WeightEntryEntity) {
+        viewModelScope.launch { weightRepository.restore(entry) }
+    }
 }

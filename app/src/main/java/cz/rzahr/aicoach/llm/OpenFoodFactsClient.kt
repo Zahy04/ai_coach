@@ -4,13 +4,19 @@ import java.io.IOException
 import java.net.URLEncoder
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.coroutines.resumeWithException
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.json.Json
+import okhttp3.Call
+import okhttp3.Callback
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import okhttp3.Response
 
 data class OffNutrition(
     val productName: String,
@@ -23,6 +29,12 @@ data class OffNutrition(
 @Serializable
 private data class OffSearchResponse(
     val products: List<OffProduct> = emptyList()
+)
+
+@Serializable
+private data class OffBarcodeResponse(
+    val status: Int = 0,
+    val product: OffProduct? = null
 )
 
 @Serializable
@@ -59,28 +71,83 @@ class OpenFoodFactsClient @Inject constructor(
             .build()
 
         try {
-            val response = http.newCall(request).execute()
+            // Zrušitelné volání: Stop v chatu nesmí čekat na pomalé OFF (až 120 s).
+            val response = http.newCall(request).await()
             response.use { resp ->
                 if (!resp.isSuccessful) return@withContext null
                 val body = resp.body?.string() ?: return@withContext null
                 val parsed = json.decodeFromString(OffSearchResponse.serializer(), body)
-                parsed.products
-                    .filter { it.nutriments?.energyKcal100g != null && it.nutriments.energyKcal100g > 0 }
-                    .firstNotNullOfOrNull { product ->
-                        val nutriments = product.nutriments ?: return@firstNotNullOfOrNull null
-                        OffNutrition(
-                            productName = (product.productNameCs ?: product.productName ?: "").trim(),
-                            caloriesPer100g = nutriments.energyKcal100g?.toInt(),
-                            proteinPer100g = nutriments.proteins100g,
-                            carbsPer100g = nutriments.carbohydrates100g,
-                            fatPer100g = nutriments.fat100g
-                        )
-                    }
+                parsed.products.firstNotNullOfOrNull { it.toNutrition() }
             }
-        } catch (_: IOException) {
-            null
+        } catch (e: CancellationException) {
+            throw e
         } catch (_: Exception) {
             null
         }
+    }
+
+    /**
+     * Přímý lookup produktu podle čárového kódu (skener, issue #1).
+     * Vrací null pro neznámý kód / produkt bez kalorií / chybu sítě.
+     */
+    suspend fun lookupBarcode(
+        barcode: String,
+        baseUrl: String = OFF_BASE_URL
+    ): OffNutrition? = withContext(Dispatchers.IO) {
+        val code = barcode.trim()
+        if (code.isEmpty()) return@withContext null
+        val url = "$baseUrl/api/v2/product/$code.json" +
+            "?fields=product_name,product_name_cs,nutriments"
+        val request = Request.Builder()
+            .url(url)
+            .addHeader("User-Agent", "AiCoach/1.0 (android)")
+            .get()
+            .build()
+
+        try {
+            val response = http.newCall(request).await()
+            response.use { resp ->
+                if (!resp.isSuccessful) return@withContext null
+                val body = resp.body?.string() ?: return@withContext null
+                val parsed = json.decodeFromString(OffBarcodeResponse.serializer(), body)
+                if (parsed.status != 1) return@withContext null
+                parsed.product?.toNutrition()
+            }
+        } catch (e: CancellationException) {
+            // Odchod ze skeneru ruší i rozběhnutý dotaz.
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    /** Produkt bez kalorií není pro deník použitelný. */
+    private fun OffProduct.toNutrition(): OffNutrition? {
+        val nutriments = nutriments
+        if (nutriments?.energyKcal100g == null || nutriments.energyKcal100g <= 0) return null
+        return OffNutrition(
+            productName = (productNameCs ?: productName ?: "").trim(),
+            caloriesPer100g = nutriments.energyKcal100g?.toInt(),
+            proteinPer100g = nutriments.proteins100g,
+            carbsPer100g = nutriments.carbohydrates100g,
+            fatPer100g = nutriments.fat100g
+        )
+    }
+
+    private suspend fun Call.await(): Response = suspendCancellableCoroutine { continuation ->
+        enqueue(object : Callback {
+            override fun onResponse(call: Call, response: Response) {
+                continuation.resume(response) { _, value, _ -> value.close() }
+            }
+
+            override fun onFailure(call: Call, e: IOException) {
+                if (!continuation.isCancelled) continuation.resumeWithException(e)
+            }
+        })
+        continuation.invokeOnCancellation { cancel() }
+    }
+
+    companion object {
+        internal const val OFF_BASE_URL = "https://world.openfoodfacts.org"
     }
 }

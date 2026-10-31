@@ -12,7 +12,7 @@ Built with Kotlin + Jetpack Compose, powered by the Google Gemini API.
 - **Tool calling** — the model writes data straight into your logs:
   - `save_weight`, `log_food`, `log_water`, `log_workout`, `save_fact`, `delete_fact`
 - Meals composed of multiple components are logged item-by-item for accuracy
-- Nutrition values come from the [Open Food Facts](https://world.openfoodfacts.org/) database instead of pure LLM guessing
+- The coach estimates portions and macros in context; [Open Food Facts](https://world.openfoodfacts.org/) fills in values only when the estimate is missing
 - Long-term memory: the coach remembers your preferences, goals and habits between sessions
 - Voice input (Czech), photo attachments (camera/gallery), stop generation, copy & regenerate messages
 - Markdown rendering in replies
@@ -42,7 +42,7 @@ Built with Kotlin + Jetpack Compose, powered by the Google Gemini API.
 
 | Layer      | Technology |
 |------------|------------|
-| UI         | Jetpack Compose, Material 3 (custom dark fitness theme, Manrope typeface) |
+| UI         | Jetpack Compose, Material 3 (custom “Signal” theme – paper/ink with a signal-orange accent, light & dark, Manrope typeface) |
 | Architecture | MVVM + Repository pattern, Hilt dependency injection |
 | Data       | Room (schema-migrated), DataStore Preferences |
 | Networking | OkHttp + kotlinx.serialization (Gemini SSE streaming, REST, Open Food Facts) |
@@ -64,8 +64,8 @@ Unit tests cover the menu scraper (against real saved HTML) and the Gemini estim
 
 ## 🔐 Privacy
 
-- Your Gemini API key and GitHub token are stored locally on the device (DataStore) and never leave it except when calling the respective APIs
-- All health data lives exclusively in the app's local database — there is no server, no analytics, no tracking
+- Your API keys and GitHub token are stored locally on the device (DataStore) and never leave it except when calling the respective APIs — Android backup and device-to-device transfer are disabled for the app
+- All health data lives in the app's local database — there is no server, no analytics, no tracking. Chat messages (including recent photos) and your notes are sent to the selected AI provider to generate replies
 
 ## 🧪 Tests
 

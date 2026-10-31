@@ -8,17 +8,14 @@ import cz.rzahr.aicoach.data.repo.FoodRepository
 import cz.rzahr.aicoach.data.repo.WaterRepository
 import cz.rzahr.aicoach.data.repo.WeightRepository
 import cz.rzahr.aicoach.data.repo.WorkoutRepository
+import cz.rzahr.aicoach.llm.ToolArgs.within
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
-import kotlinx.serialization.json.booleanOrNull
-import kotlinx.serialization.json.doubleOrNull
-import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonPrimitive
-import kotlinx.serialization.json.longOrNull
 import kotlinx.serialization.json.put
 
 class TurnContext {
@@ -51,7 +48,7 @@ class ToolExecutor @Inject constructor(
 ) {
 
     suspend fun execute(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult = try {
-        val name = call.name.removePrefix("default_api:")
+        val name = call.name.substringAfterLast(':').trim()
         when (name) {
             ToolSpecs.SAVE_WEIGHT -> saveWeight(call)
             ToolSpecs.LOG_FOOD -> logFood(call, turnContext)
@@ -64,14 +61,18 @@ class ToolExecutor @Inject constructor(
                 ToolSpecs.errorResult(context.getString(R.string.err_unknown_tool, call.name))
             )
         }
+    } catch (e: CancellationException) {
+        // Stop generování musí smyčku nástrojů opravdu zastavit.
+        throw e
     } catch (e: Exception) {
         ToolExecutionResult(null, ToolSpecs.errorResult(e.message ?: context.getString(R.string.err_unexpected)))
     }
 
     private suspend fun saveWeight(call: FunctionCall): ToolExecutionResult {
-        val weightKg = call.args?.get("weight_kg")?.jsonPrimitive?.doubleOrNull
-            ?: return missingParam("weight_kg")
-        val note = call.args?.get("note")?.jsonPrimitive?.contentOrNull()
+        val raw = ToolArgs.double(call.args, "weight_kg") ?: return missingParam("weight_kg")
+        val weightKg = raw.within(ToolArgs.MIN_WEIGHT_KG..ToolArgs.MAX_WEIGHT_KG)
+            ?: return outOfRange("weight_kg", raw)
+        val note = ToolArgs.string(call.args, "note")
 
         // deduplikace: pokud je dnes už zapsaná úplně stejná váha, odmítneme
         val latest = weightRepository.latestAsc(1).lastOrNull()
@@ -101,14 +102,14 @@ class ToolExecutor @Inject constructor(
     }
 
     private suspend fun logFood(call: FunctionCall, turnContext: TurnContext): ToolExecutionResult {
-        val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return missingParam("name")
-        val quantityG = call.args?.get("quantity_g")?.jsonPrimitive?.doubleOrNull
-        val force = call.args?.get("force")?.jsonPrimitive?.booleanOrNull == true
+        val args = call.args
+        val name = ToolArgs.string(args, "name") ?: return missingParam("name")
+        val quantityG = ToolArgs.double(args, "quantity_g").within(0.1..ToolArgs.MAX_PORTION_G)
+        val force = ToolArgs.boolean(args, "force") == true
 
         // volitelné date/time — pouze na výslovnou žádost uživatele, jinak "teď"
-        val dateArg = call.args?.get("date")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-        val timeArg = call.args?.get("time")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
+        val dateArg = ToolArgs.string(args, "date")
+        val timeArg = ToolArgs.string(args, "time")
         val zone = java.time.ZoneId.systemDefault()
         val now = java.time.ZonedDateTime.now(zone)
         val targetTs: Long = try {
@@ -145,7 +146,7 @@ class ToolExecutor @Inject constructor(
             )
         }
 
-        val dedupeKey = name.trim().lowercase()
+        val dedupeKey = name.lowercase()
         val turnKey = dedupeKey + "|" + java.time.Instant.ofEpochMilli(targetTs).atZone(zone).toLocalDate()
         if (!force && turnKey in turnContext.loggedFoods) {
             return ToolExecutionResult(
@@ -156,14 +157,14 @@ class ToolExecutor @Inject constructor(
                 }
             )
         }
-        turnContext.loggedFoods.add(turnKey)
 
         // cross-message detekce duplicity: podobný název do 2 h od zapisovaného času
         if (!force) {
             val recent = foodRepository.since(targetTs - DUPLICATE_WINDOW_MS)
             val dup = recent.firstOrNull { entry ->
                 val n = entry.name.trim().lowercase()
-                (n == dedupeKey || n.contains(dedupeKey) || dedupeKey.contains(n)) &&
+                n.isNotEmpty() &&
+                    (n == dedupeKey || n.contains(dedupeKey) || dedupeKey.contains(n)) &&
                     kotlin.math.abs(entry.timestamp - targetTs) <= DUPLICATE_WINDOW_MS
             }
             if (dup != null) {
@@ -181,33 +182,29 @@ class ToolExecutor @Inject constructor(
             }
         }
 
-        // 1) Open Food Facts → 2) odhad modelu
-        var sourceLabel = context.getString(R.string.ev_source_estimate)
-        var source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_CHAT
-        var resolvedName = name
-        var resolved: ResolvedNutrition
-
-        val off = openFoodFactsClient.search(name)
-        if (off != null) {
-            val factor = (quantityG ?: 100.0) / 100.0
-            resolved = ResolvedNutrition(
-                calories = off.caloriesPer100g?.let { (it * factor).toInt() },
-                proteinG = off.proteinPer100g?.times(factor),
-                carbsG = off.carbsPer100g?.times(factor),
-                fatG = off.fatPer100g?.times(factor),
-                refGrams = quantityG ?: 100.0
-            )
-            if (off.productName.isNotBlank()) resolvedName = "$name (${off.productName})"
-            sourceLabel = context.getString(R.string.ev_source_off)
-            source = cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_API
+        // 1) odhad modelu → 2) Open Food Facts jen když model kalorie neposlal
+        val modelNutrition = ResolvedNutrition(
+            calories = ToolArgs.int(args, "calories").within(0..ToolArgs.MAX_KCAL),
+            proteinG = ToolArgs.double(args, "protein_g").within(0.0..ToolArgs.MAX_MACRO_G),
+            carbsG = ToolArgs.double(args, "carbs_g").within(0.0..ToolArgs.MAX_MACRO_G),
+            fatG = ToolArgs.double(args, "fat_g").within(0.0..ToolArgs.MAX_MACRO_G),
+            refGrams = quantityG
+        )
+        val off = if (NutritionChoice.needsLookup(modelNutrition)) openFoodFactsClient.search(name) else null
+        val choice = NutritionChoice.choose(modelNutrition, off, quantityG)
+        val resolved = choice.nutrition
+        val sourceLabel = context.getString(
+            if (choice.fromOff) R.string.ev_source_off else R.string.ev_source_estimate
+        )
+        val source = if (choice.fromOff) {
+            cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_API
         } else {
-            resolved = ResolvedNutrition(
-                calories = call.args?.get("calories")?.jsonPrimitive?.intOrNull,
-                proteinG = call.args?.get("protein_g")?.jsonPrimitive?.doubleOrNull,
-                carbsG = call.args?.get("carbs_g")?.jsonPrimitive?.doubleOrNull,
-                fatG = call.args?.get("fat_g")?.jsonPrimitive?.doubleOrNull,
-                refGrams = quantityG
-            )
+            cz.rzahr.aicoach.data.db.entity.FoodEntryEntity.SOURCE_CHAT
+        }
+        val resolvedName = if (choice.fromOff && off != null && off.productName.isNotBlank()) {
+            "$name (${off.productName})"
+        } else {
+            name
         }
 
         foodRepository.add(
@@ -220,6 +217,8 @@ class ToolExecutor @Inject constructor(
             timestamp = targetTs,
             source = source
         )
+        // Až po úspěšném zápisu – jinak by chyba DB blokovala opakovaný pokus v tomtéž kole.
+        turnContext.loggedFoods.add(turnKey)
 
         val event = buildString {
             append(context.getString(R.string.ev_food_saved_base, resolvedName))
@@ -229,7 +228,7 @@ class ToolExecutor @Inject constructor(
             }
             append(" · ")
             append(sourceLabel)
-            quantityG?.let {
+            resolved.refGrams?.let {
                 append(context.getString(R.string.ev_grams_part, it.toInt()))
             }
             append(".")
@@ -243,7 +242,7 @@ class ToolExecutor @Inject constructor(
                     .format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
             )
             put("source", sourceLabel)
-            put("quantity_grams", quantityG ?: 100.0)
+            resolved.refGrams?.let { put("quantity_grams", it) }
             resolved.calories?.let { put("calories", it) }
             resolved.proteinG?.let { put("protein_g", it) }
             resolved.carbsG?.let { put("carbs_g", it) }
@@ -252,7 +251,8 @@ class ToolExecutor @Inject constructor(
     }
 
     private suspend fun logWater(call: FunctionCall): ToolExecutionResult {
-        val amountMl = call.args?.get("amount_ml")?.jsonPrimitive?.intOrNull ?: 250
+        val raw = ToolArgs.int(call.args, "amount_ml") ?: DEFAULT_WATER_ML
+        val amountMl = raw.within(1..ToolArgs.MAX_WATER_ML) ?: return outOfRange("amount_ml", raw)
         waterRepository.add(amountMl)
         return ToolExecutionResult(
             context.getString(R.string.ev_water_saved, amountMl),
@@ -264,30 +264,23 @@ class ToolExecutor @Inject constructor(
     }
 
     private suspend fun logWorkout(call: FunctionCall): ToolExecutionResult {
-        val name = call.args?.get("name")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return missingParam("name")
-        val duration = call.args?.get("duration_minutes")?.jsonPrimitive?.intOrNull
-        val caloriesBurned = call.args?.get("calories_burned")?.jsonPrimitive?.intOrNull
-        val note = call.args?.get("note")?.jsonPrimitive?.contentOrNull()
+        val name = ToolArgs.string(call.args, "name") ?: return missingParam("name")
+        val duration = ToolArgs.int(call.args, "duration_minutes").within(1..ToolArgs.MAX_WORKOUT_MIN)
+        val caloriesBurned = ToolArgs.int(call.args, "calories_burned").within(0..ToolArgs.MAX_KCAL)
+        val note = ToolArgs.string(call.args, "note")
         workoutRepository.add(name = name, durationMinutes = duration, caloriesBurned = caloriesBurned, note = note)
-        val event = buildString {
-            append(
-                context.getString(
-                    R.string.ev_workout_saved,
-                    name,
-                    duration?.let { " " + context.getString(R.string.ev_duration_part, it) } ?: ""
-                )
-            )
-        }
+        val event = context.getString(
+            R.string.ev_workout_saved,
+            name,
+            duration?.let { " " + context.getString(R.string.ev_duration_part, it) } ?: ""
+        )
         return ToolExecutionResult(event, ToolSpecs.okResult())
     }
 
     private suspend fun saveFact(call: FunctionCall): ToolExecutionResult {
-        val category = call.args?.get("category")?.jsonPrimitive?.contentOrNull()
-            ?: return missingParam("category")
-        val content = call.args?.get("content")?.jsonPrimitive?.contentOrNull()?.takeIf { it.isNotBlank() }
-            ?: return missingParam("content")
-        val factId = call.args?.get("fact_id")?.jsonPrimitive?.longOrNull
+        val category = ToolArgs.string(call.args, "category") ?: return missingParam("category")
+        val content = ToolArgs.string(call.args, "content") ?: return missingParam("content")
+        val factId = ToolArgs.long(call.args, "fact_id")
 
         val result = factRepository.upsert(category, content, factId)
         val event = if (result.created) {
@@ -299,9 +292,13 @@ class ToolExecutor @Inject constructor(
     }
 
     private suspend fun deleteFact(call: FunctionCall): ToolExecutionResult {
-        val factId = call.args?.get("fact_id")?.jsonPrimitive?.longOrNull
-            ?: return missingParam("fact_id")
-        factRepository.delete(factId)
+        val factId = ToolArgs.long(call.args, "fact_id") ?: return missingParam("fact_id")
+        if (!factRepository.delete(factId)) {
+            return ToolExecutionResult(
+                null,
+                ToolSpecs.errorResult(context.getString(R.string.err_fact_not_found, factId))
+            )
+        }
         return ToolExecutionResult(
             context.getString(R.string.ev_fact_deleted, factId),
             ToolSpecs.okResult()
@@ -311,16 +308,20 @@ class ToolExecutor @Inject constructor(
     private fun missingParam(param: String): ToolExecutionResult =
         ToolExecutionResult(null, ToolSpecs.errorResult(context.getString(R.string.err_missing_param, param)))
 
+    private fun outOfRange(param: String, value: Any): ToolExecutionResult =
+        ToolExecutionResult(
+            null,
+            ToolSpecs.errorResult(context.getString(R.string.err_value_out_of_range, value.toString(), param))
+        )
+
     private fun formatNumber(value: Int): String =
         String.format(Locale.forLanguageTag("cs"), "%d", value)
-
-    private fun kotlinx.serialization.json.JsonPrimitive.contentOrNull(): String? =
-        if (this is kotlinx.serialization.json.JsonNull) null else content
 
     companion object {
         private const val DUPLICATE_WINDOW_MS = 2 * 60 * 60 * 1000L
         private const val FUTURE_TOLERANCE_MS = 5 * 60 * 1000L
         private const val MAX_PAST_MS = 7L * 24 * 60 * 60 * 1000
+        private const val DEFAULT_WATER_ML = 250
         private val HHMM: DateTimeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     }
 }

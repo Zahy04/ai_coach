@@ -47,4 +47,8 @@ class FoodViewModel @Inject constructor(
     fun delete(id: Long) {
         viewModelScope.launch { foodRepository.delete(id) }
     }
+
+    fun restore(entry: FoodEntryEntity) {
+        viewModelScope.launch { foodRepository.restore(entry) }
+    }
 }
