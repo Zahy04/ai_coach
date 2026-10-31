@@ -64,6 +64,7 @@ import cz.rzahr.aicoach.R
 import cz.rzahr.aicoach.ui.chat.ChatScreen
 import cz.rzahr.aicoach.ui.dashboard.DashboardScreen
 import cz.rzahr.aicoach.ui.food.FoodDiaryScreen
+import cz.rzahr.aicoach.ui.food.ScanScreen
 import cz.rzahr.aicoach.ui.mensa.MensaScreen
 import cz.rzahr.aicoach.ui.photos.PhotoCompareScreen
 import cz.rzahr.aicoach.ui.photos.PhotoDetailScreen
@@ -86,6 +87,7 @@ object Routes {
     const val PHOTO_FOLDER = "photos_folder/{pose}"
     const val PHOTO_SLIDESHOW = "photos_slideshow/{pose}"
     const val MENSA = "mensa"
+    const val SCAN = "scan"
 
     fun photoDetail(photoId: Long) = "photo_detail/$photoId"
     fun photoCompare(firstId: Long, secondId: Long) = "photo_compare/$firstId/$secondId"
@@ -160,7 +162,13 @@ fun AiCoachApp() {
             }
             composable(Routes.WEIGHT) { WeightScreen() }
             composable(Routes.FOOD) {
-                FoodDiaryScreen(onOpenMensa = { navController.navigate(Routes.MENSA) })
+                FoodDiaryScreen(
+                    onOpenMensa = { navController.navigate(Routes.MENSA) },
+                    onOpenScan = { navController.navigate(Routes.SCAN) }
+                )
+            }
+            composable(Routes.SCAN) {
+                ScanScreen(onBack = { navController.popBackStack() })
             }
             composable(Routes.MENSA) {
                 MensaScreen(onBack = { navController.popBackStack() })
