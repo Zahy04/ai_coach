@@ -147,6 +147,12 @@
     <string name="scan_macro_protein">Bílkoviny %1$s g</string>
     <string name="scan_macro_carbs">Sacharidy %1$s g</string>
     <string name="scan_macro_fat">Tuky %1$s g</string>
+    <string name="scan_enter_manually">Zadat ručně</string>
+    <string name="scan_code">Kód %1$s</string>
+    <string name="scan_edit_product">Upravit</string>
+    <string name="scan_manual_title">Nový produkt</string>
+    <string name="scan_manual_desc">Hodnoty na 100 g. Uloží se pod kód %1$s pro příště.</string>
+    <string name="scan_manual_kcal_label">kcal (prázdné = z maker)</string>
     <string name="food_empty_title">Zatím žádná jídla</string>
     <string name="food_empty_desc">Napiš mi v chatu, co jsi jedl, nebo přidej jídlo ručně tlačítkem +.</string>
     <string name="records_one">%1$d záznam</string>

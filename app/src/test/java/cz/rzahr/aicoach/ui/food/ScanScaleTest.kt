@@ -45,4 +45,11 @@ class ScanScaleTest {
         assertEquals(false, isProductCode("https://example.com/p/1"))
         assertEquals(false, isProductCode("85940010/1449"))
     }
+
+    @Test
+    fun `kcalFromMacros pocita 4-4-9 a bez maker vrati null`() {
+        assertEquals(370, kcalFromMacros(30.0, 40.0, 10.0))
+        assertEquals(36, kcalFromMacros(null, null, 4.0))
+        assertNull(kcalFromMacros(null, null, null))
+    }
 }

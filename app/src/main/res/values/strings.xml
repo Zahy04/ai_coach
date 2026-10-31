@@ -148,6 +148,12 @@
     <string name="scan_macro_protein">Protein %1$s g</string>
     <string name="scan_macro_carbs">Carbs %1$s g</string>
     <string name="scan_macro_fat">Fat %1$s g</string>
+    <string name="scan_enter_manually">Enter manually</string>
+    <string name="scan_code">Code %1$s</string>
+    <string name="scan_edit_product">Edit</string>
+    <string name="scan_manual_title">New product</string>
+    <string name="scan_manual_desc">Values per 100 g. Saved under code %1$s for next time.</string>
+    <string name="scan_manual_kcal_label">kcal (empty = from macros)</string>
     <string name="food_empty_title">No meals yet</string>
     <string name="food_empty_desc">Tell me in chat what you ate, or add food manually with the + button.</string>
     <string name="records_one">%1$d record</string>

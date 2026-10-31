@@ -13,6 +13,7 @@ import androidx.camera.view.PreviewView
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -25,6 +26,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -78,6 +80,7 @@ fun ScanScreen(
     val product by viewModel.product.collectAsStateWithLifecycle()
     val lookingUp by viewModel.lookingUp.collectAsStateWithLifecycle()
     val notFoundCode by viewModel.notFoundCode.collectAsStateWithLifecycle()
+    val manualEntry by viewModel.manualEntry.collectAsStateWithLifecycle()
     val saved by viewModel.saved.collectAsStateWithLifecycle()
 
     LaunchedEffect(saved) { if (saved) onBack() }
@@ -118,8 +121,13 @@ fun ScanScreen(
                                         style = MaterialTheme.typography.bodyMedium,
                                         textAlign = TextAlign.Center
                                     )
-                                    Button(onClick = viewModel::clearNotFound) {
-                                        Text(stringResource(R.string.retry))
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedButton(onClick = viewModel::clearNotFound) {
+                                            Text(stringResource(R.string.retry))
+                                        }
+                                        Button(onClick = viewModel::startManualEntry) {
+                                            Text(stringResource(R.string.scan_enter_manually))
+                                        }
                                     }
                                 }
                             }
@@ -141,8 +149,20 @@ fun ScanScreen(
         GramsDialog(
             product = found,
             onDismiss = viewModel::resetProduct,
-            onConfirm = viewModel::saveGrams
+            onConfirm = viewModel::saveGrams,
+            onEdit = viewModel::startManualEntry
         )
+    }
+    manualEntry?.let { entry ->
+        // key: úprava jiného produktu nesmí převzít rememberSaveable stav předchozího.
+        androidx.compose.runtime.key(entry.code) {
+            ManualProductDialog(
+                code = entry.code,
+                initial = entry.initial,
+                onDismiss = viewModel::cancelManualEntry,
+                onSave = viewModel::saveManual
+            )
+        }
     }
 }
 
@@ -185,14 +205,18 @@ private fun CameraPreview(onBarcode: (String) -> Unit) {
                 .build()
         )
     }
-    var cameraProvider by remember { mutableStateOf<ProcessCameraProvider?>(null) }
     var cameraError by remember { mutableStateOf(false) }
 
     AndroidView(factory = { previewView }, modifier = Modifier.fillMaxSize())
 
-    LaunchedEffect(previewView) {
+    // Navázání i uvolnění kamery v jednom efektu: dřív onDispose druhého efektu
+    // (klíčovaného providerem) četl už nastavený provider a kameru hned odpojil → černý náhled.
+    DisposableEffect(lifecycle, previewView) {
         val providerFuture = ProcessCameraProvider.getInstance(context)
+        var boundProvider: ProcessCameraProvider? = null
+        var disposed = false
         providerFuture.addListener({
+            if (disposed) return@addListener
             try {
                 val provider = providerFuture.get()
                 val preview = Preview.Builder().build()
@@ -210,17 +234,18 @@ private fun CameraPreview(onBarcode: (String) -> Unit) {
                     preview,
                     analysis
                 )
-                cameraProvider = provider
+                boundProvider = provider
             } catch (_: Exception) {
                 cameraError = true
             }
         }, ContextCompat.getMainExecutor(context))
+        onDispose {
+            disposed = true
+            boundProvider?.unbindAll()
+        }
     }
 
     DisposableEffect(scanner) { onDispose { scanner.close() } }
-    DisposableEffect(cameraProvider) {
-        onDispose { cameraProvider?.unbindAll() }
-    }
 
     if (cameraError) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -254,20 +279,26 @@ private fun processProxy(
 
 @Composable
 private fun GramsDialog(
-    product: OffNutrition,
+    product: ScannedProduct,
     onDismiss: () -> Unit,
-    onConfirm: (Int) -> Unit
+    onConfirm: (Int) -> Unit,
+    onEdit: () -> Unit
 ) {
     var grams by rememberSaveable { mutableStateOf("100") }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text(product.productName.ifBlank { stringResource(R.string.scan_unknown_product) })
+            Text(product.nutrition.productName.ifBlank { stringResource(R.string.scan_unknown_product) })
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
-                    per100gText(product),
+                    stringResource(R.string.scan_code, product.code),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    per100gText(product.nutrition),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -284,6 +315,77 @@ private fun GramsDialog(
             TextButton(onClick = { onConfirm(grams.toIntOrNull() ?: 100) }) {
                 Text(stringResource(R.string.scan_save))
             }
+        },
+        dismissButton = {
+            Row {
+                // Jen ručně uložené produkty – data z OFF se upravují na openfoodfacts.org.
+                if (product.local) {
+                    TextButton(onClick = onEdit) { Text(stringResource(R.string.scan_edit_product)) }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
+            }
+        }
+    )
+}
+
+/** Ruční zadání produktu na 100 g – uloží se pod kód, aby ho příští sken našel. */
+@Composable
+private fun ManualProductDialog(
+    code: String,
+    initial: OffNutrition?,
+    onDismiss: () -> Unit,
+    onSave: (String, Int?, Double?, Double?, Double?) -> Unit
+) {
+    var name by rememberSaveable { mutableStateOf(initial?.productName.orEmpty()) }
+    var calories by rememberSaveable { mutableStateOf(initial?.caloriesPer100g?.toString().orEmpty()) }
+    var protein by rememberSaveable { mutableStateOf(initial?.proteinPer100g?.let(::trimNum).orEmpty()) }
+    var carbs by rememberSaveable { mutableStateOf(initial?.carbsPer100g?.let(::trimNum).orEmpty()) }
+    var fat by rememberSaveable { mutableStateOf(initial?.fatPer100g?.let(::trimNum).orEmpty()) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.scan_manual_title)) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    stringResource(R.string.scan_manual_desc, code),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.food_name_label)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    NumberField(protein, { protein = it }, stringResource(R.string.macro_protein_label), Modifier.weight(1f))
+                    NumberField(carbs, { carbs = it }, stringResource(R.string.macro_carbs_label), Modifier.weight(1f))
+                    NumberField(fat, { fat = it }, stringResource(R.string.macro_fat_label), Modifier.weight(1f))
+                }
+                NumberField(
+                    calories,
+                    { calories = it },
+                    stringResource(R.string.scan_manual_kcal_label),
+                    Modifier.fillMaxWidth(),
+                    decimal = false
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    onSave(
+                        name.trim(),
+                        calories.parseIntOrNull(),
+                        protein.parseDoubleOrNull(),
+                        carbs.parseDoubleOrNull(),
+                        fat.parseDoubleOrNull()
+                    )
+                },
+                enabled = name.isNotBlank()
+            ) { Text(stringResource(R.string.save)) }
         },
         dismissButton = {
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.cancel)) }
